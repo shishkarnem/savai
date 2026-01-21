@@ -6,79 +6,79 @@
 
 @layer base {
   :root {
-    /* Steampunk Color Palette */
-    --color-brass: 43 77% 52%;
-    --color-copper: 25 53% 46%;
-    --color-bronze: 25 75% 31%;
-    --color-dark: 10 27% 8%;
-    --color-leather: 10 24% 13%;
-    --color-paper: 60 56% 91%;
+    /* Steampunk Color Palette - Original Dark Theme */
+    --color-brass: 43 74% 49%;
+    --color-copper: 30 65% 45%;
+    --color-bronze: 30 80% 25%;
+    --color-dark: 20 30% 5%;
+    --color-leather: 20 25% 8%;
+    --color-paper: 45 30% 85%;
     
     /* Glass effects */
-    --glass-bg: rgba(26, 15, 13, 0.45);
-    --glass-border: rgba(212, 175, 55, 0.25);
+    --glass-bg: rgba(15, 10, 8, 0.75);
+    --glass-border: rgba(180, 140, 40, 0.3);
     
-    /* Semantic tokens mapped to steampunk */
-    --background: 10 27% 8%;
-    --foreground: 60 56% 91%;
+    /* Semantic tokens - Deep dark steampunk */
+    --background: 20 30% 5%;
+    --foreground: 45 30% 85%;
 
-    --card: 10 24% 13%;
-    --card-foreground: 60 56% 91%;
+    --card: 20 25% 8%;
+    --card-foreground: 45 30% 85%;
 
-    --popover: 10 24% 13%;
-    --popover-foreground: 60 56% 91%;
+    --popover: 20 25% 8%;
+    --popover-foreground: 45 30% 85%;
 
-    --primary: 43 77% 52%;
-    --primary-foreground: 10 27% 8%;
+    --primary: 43 74% 49%;
+    --primary-foreground: 20 30% 5%;
 
-    --secondary: 25 53% 46%;
-    --secondary-foreground: 60 56% 91%;
+    --secondary: 30 65% 45%;
+    --secondary-foreground: 45 30% 85%;
 
-    --muted: 25 75% 31%;
-    --muted-foreground: 60 56% 70%;
+    --muted: 30 80% 25%;
+    --muted-foreground: 45 30% 65%;
 
-    --accent: 25 53% 46%;
-    --accent-foreground: 60 56% 91%;
+    --accent: 30 65% 45%;
+    --accent-foreground: 45 30% 85%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 56% 91%;
+    --destructive-foreground: 45 30% 85%;
 
-    --border: 43 77% 52% / 0.25;
-    --input: 43 77% 52% / 0.3;
-    --ring: 43 77% 52%;
+    --border: 43 74% 49% / 0.2;
+    --input: 43 74% 49% / 0.25;
+    --ring: 43 74% 49%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 10 24% 13%;
-    --sidebar-foreground: 60 56% 91%;
-    --sidebar-primary: 43 77% 52%;
-    --sidebar-primary-foreground: 10 27% 8%;
-    --sidebar-accent: 25 53% 46%;
-    --sidebar-accent-foreground: 60 56% 91%;
-    --sidebar-border: 43 77% 52% / 0.2;
-    --sidebar-ring: 43 77% 52%;
+    --sidebar-background: 20 25% 8%;
+    --sidebar-foreground: 45 30% 85%;
+    --sidebar-primary: 43 74% 49%;
+    --sidebar-primary-foreground: 20 30% 5%;
+    --sidebar-accent: 30 65% 45%;
+    --sidebar-accent-foreground: 45 30% 85%;
+    --sidebar-border: 43 74% 49% / 0.15;
+    --sidebar-ring: 43 74% 49%;
   }
 
   .dark {
-    --background: 10 27% 8%;
-    --foreground: 60 56% 91%;
-    --card: 10 24% 13%;
-    --card-foreground: 60 56% 91%;
-    --popover: 10 24% 13%;
-    --popover-foreground: 60 56% 91%;
-    --primary: 43 77% 52%;
-    --primary-foreground: 10 27% 8%;
-    --secondary: 25 53% 46%;
-    --secondary-foreground: 60 56% 91%;
-    --muted: 25 75% 31%;
-    --muted-foreground: 60 56% 70%;
-    --accent: 25 53% 46%;
-    --accent-foreground: 60 56% 91%;
+    --background: 20 30% 5%;
+    --foreground: 45 30% 85%;
+    --card: 20 25% 8%;
+    --card-foreground: 45 30% 85%;
+    --popover: 20 25% 8%;
+    --popover-foreground: 45 30% 85%;
+    --primary: 43 74% 49%;
+    --primary-foreground: 20 30% 5%;
+    --secondary: 30 65% 45%;
+    --secondary-foreground: 45 30% 85%;
+    --muted: 30 80% 25%;
+    --muted-foreground: 45 30% 65%;
+    --accent: 30 65% 45%;
+    --accent-foreground: 45 30% 85%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 60 56% 91%;
-    --border: 43 77% 52% / 0.25;
-    --input: 43 77% 52% / 0.3;
-    --ring: 43 77% 52%;
+    --destructive-foreground: 45 30% 85%;
+    --border: 43 74% 49% / 0.2;
+    --input: 43 74% 49% / 0.25;
+    --ring: 43 74% 49%;
   }
 }
 
