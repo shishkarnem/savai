@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft } from 'lucide-react';
+import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import Rivets from '@/components/Rivets';
 import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
+import { useSwipeFeedback } from '@/hooks/useSwipeFeedback';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -29,6 +30,9 @@ const ExpertSelection: React.FC = () => {
   const [swipeAnimation, setSwipeAnimation] = useState<SwipeDirection | null>(null);
   const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string; type: 'icon' | 'smoke' | 'gear' }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  const { triggerFeedback } = useSwipeFeedback();
 
   useEffect(() => {
     fetchExperts();
@@ -108,6 +112,11 @@ const ExpertSelection: React.FC = () => {
     const currentExpert = experts[currentIndex];
     setSwipeAnimation(direction);
     triggerExplosion(direction);
+    
+    // Trigger haptic feedback and sound
+    if (soundEnabled) {
+      triggerFeedback(direction);
+    }
 
     setTimeout(() => {
       setSwipeHistory(prev => [...prev, { 
@@ -191,6 +200,17 @@ const ExpertSelection: React.FC = () => {
         </button>
         <h1 className="text-2xl md:text-3xl text-center">Подбор Эксперта</h1>
         <div className="flex gap-2">
+          <button 
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="p-2 rounded-full bg-foreground/5 border border-foreground/10 hover:bg-foreground/10 transition-all"
+            title={soundEnabled ? "Выключить звук" : "Включить звук"}
+          >
+            {soundEnabled ? (
+              <Volume2 size={18} className="text-primary" />
+            ) : (
+              <VolumeX size={18} className="text-muted-foreground" />
+            )}
+          </button>
           <button 
             onClick={navigateToHistory}
             className="p-2 rounded-full bg-foreground/5 border border-foreground/10 hover:bg-foreground/10 transition-all relative"
