@@ -1,12 +1,28 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 
 type SwipeDirection = 'left' | 'right' | 'down';
 
-// Sound URLs - using free mechanical sound effects
-const SOUND_URLS = {
-  right: 'https://freesound.org/data/previews/220/220206_3890806-lq.mp3', // gear click
-  left: 'https://freesound.org/data/previews/170/170229_2159766-lq.mp3', // mechanical release
-  down: 'https://freesound.org/data/previews/351/351565_5477037-lq.mp3', // gear spin
+// Free sound effects URLs from Pixabay/Freesound (royalty-free)
+const SOUND_LIBRARY = {
+  right: [
+    // Success/positive mechanical sounds
+    'https://cdn.pixabay.com/audio/2022/03/15/audio_7a98d09fce.mp3', // click
+    'https://cdn.pixabay.com/audio/2022/10/30/audio_65d9fdc8ec.mp3', // gear
+    'https://cdn.pixabay.com/audio/2022/03/24/audio_79a64d8cc3.mp3', // success
+  ],
+  left: [
+    // Reject/negative sounds
+    'https://cdn.pixabay.com/audio/2022/03/10/audio_f8c8f67ddd.mp3', // whoosh
+    'https://cdn.pixabay.com/audio/2021/08/04/audio_12b0c7443c.mp3', // swipe
+    'https://cdn.pixabay.com/audio/2022/03/15/audio_942e722544.mp3', // brush
+  ],
+  down: [
+    // Skip/neutral sounds  
+    'https://cdn.pixabay.com/audio/2022/03/19/audio_d3ded8b6ed.mp3', // pop
+    'https://cdn.pixabay.com/audio/2022/01/18/audio_95cc66c2f4.mp3', // soft
+    'https://cdn.pixabay.com/audio/2021/08/04/audio_0625c1539c.mp3', // click
+    'https://cdn.pixabay.com/audio/2022/03/24/audio_dd8d1de282.mp3', // tap
+  ],
 };
 
 // Vibration patterns (in milliseconds)
@@ -17,52 +33,44 @@ const VIBRATION_PATTERNS = {
 };
 
 export const useSwipeFeedback = () => {
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioBuffersRef = useRef<Map<SwipeDirection, AudioBuffer>>(new Map());
-  const isLoadedRef = useRef(false);
+  const audioElements = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const soundIndexRef = useRef<{ right: number; left: number; down: number }>({
+    right: 0,
+    left: 0,
+    down: 0,
+  });
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize audio context and preload sounds
+  // Preload all sounds
   useEffect(() => {
-    const initAudio = async () => {
-      try {
-        // Create audio context on user interaction
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        
-        // Preload sounds
-        const loadSound = async (direction: SwipeDirection, url: string) => {
-          try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContextRef.current!.decodeAudioData(arrayBuffer);
-            audioBuffersRef.current.set(direction, audioBuffer);
-          } catch (e) {
-            console.log(`Could not load sound for ${direction}:`, e);
+    const preloadSounds = () => {
+      Object.entries(SOUND_LIBRARY).forEach(([direction, urls]) => {
+        urls.forEach((url, index) => {
+          const key = `${direction}-${index}`;
+          if (!audioElements.current.has(key)) {
+            const audio = new Audio();
+            audio.preload = 'auto';
+            audio.volume = 0.3;
+            audio.src = url;
+            audioElements.current.set(key, audio);
           }
-        };
-
-        await Promise.all([
-          loadSound('right', SOUND_URLS.right),
-          loadSound('left', SOUND_URLS.left),
-          loadSound('down', SOUND_URLS.down),
-        ]);
-        
-        isLoadedRef.current = true;
-      } catch (e) {
-        console.log('Audio initialization failed:', e);
-      }
+        });
+      });
+      setIsInitialized(true);
     };
 
     // Initialize on first user interaction
     const handleInteraction = () => {
-      initAudio();
+      preloadSounds();
       document.removeEventListener('touchstart', handleInteraction);
       document.removeEventListener('click', handleInteraction);
     };
 
     document.addEventListener('touchstart', handleInteraction);
     document.addEventListener('click', handleInteraction);
+
+    // Also try to preload immediately
+    preloadSounds();
 
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
@@ -81,51 +89,29 @@ export const useSwipeFeedback = () => {
   }, []);
 
   const playSound = useCallback((direction: SwipeDirection) => {
-    if (!audioContextRef.current || !isLoadedRef.current) {
-      // Fallback: use simple Audio element
-      try {
-        const audio = new Audio();
-        audio.volume = 0.3;
-        
-        // Use simple beep sounds as fallback
-        const oscillator = audioContextRef.current?.createOscillator();
-        const gainNode = audioContextRef.current?.createGain();
-        
-        if (oscillator && gainNode && audioContextRef.current) {
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContextRef.current.destination);
-          
-          // Different frequencies for different actions
-          oscillator.frequency.value = direction === 'right' ? 800 : direction === 'left' ? 300 : 500;
-          oscillator.type = 'square';
-          
-          gainNode.gain.value = 0.1;
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.15);
-          
-          oscillator.start();
-          oscillator.stop(audioContextRef.current.currentTime + 0.15);
-        }
-      } catch (e) {
-        console.log('Sound fallback failed:', e);
-      }
-      return;
-    }
+    const sounds = SOUND_LIBRARY[direction];
+    const currentIndex = soundIndexRef.current[direction];
+    const key = `${direction}-${currentIndex}`;
+    
+    // Get next sound index (rotate through available sounds)
+    soundIndexRef.current[direction] = (currentIndex + 1) % sounds.length;
 
-    const buffer = audioBuffersRef.current.get(direction);
-    if (buffer) {
-      try {
-        const source = audioContextRef.current.createBufferSource();
-        const gainNode = audioContextRef.current.createGain();
-        
-        source.buffer = buffer;
-        source.connect(gainNode);
-        gainNode.connect(audioContextRef.current.destination);
-        gainNode.gain.value = 0.4;
-        
-        source.start(0);
-      } catch (e) {
-        console.log('Sound playback failed:', e);
-      }
+    const audio = audioElements.current.get(key);
+    if (audio) {
+      // Reset and play
+      audio.currentTime = 0;
+      audio.volume = 0.35;
+      audio.play().catch(() => {
+        // Fallback: create new audio element
+        const fallbackAudio = new Audio(sounds[currentIndex]);
+        fallbackAudio.volume = 0.35;
+        fallbackAudio.play().catch(() => {});
+      });
+    } else {
+      // Fallback if not preloaded
+      const fallbackAudio = new Audio(sounds[currentIndex]);
+      fallbackAudio.volume = 0.35;
+      fallbackAudio.play().catch(() => {});
     }
   }, []);
 
@@ -134,5 +120,5 @@ export const useSwipeFeedback = () => {
     playSound(direction);
   }, [triggerVibration, playSound]);
 
-  return { triggerFeedback, triggerVibration, playSound };
+  return { triggerFeedback, triggerVibration, playSound, isInitialized };
 };
