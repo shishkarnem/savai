@@ -98,14 +98,12 @@ const ExpertSelection: React.FC = () => {
 
       if (direction === 'right') {
         setSelectedExperts(prev => [...prev, currentExpert]);
+        setCurrentIndex(prev => prev + 1);
       } else if (direction === 'down') {
-        // Move to end of queue
+        // Move to end of queue - don't increment index since array shifts
         setExperts(prev => [...prev.slice(0, currentIndex), ...prev.slice(currentIndex + 1), currentExpert]);
       } else {
-        setCurrentIndex(prev => prev + 1);
-      }
-
-      if (direction !== 'down') {
+        // left - reject
         setCurrentIndex(prev => prev + 1);
       }
       
