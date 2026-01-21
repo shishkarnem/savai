@@ -27,7 +27,7 @@ const ExpertSelection: React.FC = () => {
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
   const [showInstructions, setShowInstructions] = useState(true);
   const [swipeAnimation, setSwipeAnimation] = useState<SwipeDirection | null>(null);
-  const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string }[]>([]);
+  const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string; type: 'icon' | 'smoke' | 'gear' }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,20 +66,40 @@ const ExpertSelection: React.FC = () => {
 
   const triggerExplosion = useCallback((direction: SwipeDirection) => {
     const icons = direction === 'right' 
-      ? ['❤️', '✨', '⚙️', '🔥', '💫']
+      ? ['❤️', '✨', '🔥', '💫', '⭐']
       : direction === 'left'
-      ? ['💨', '⚡', '🔧', '💔', '🌪️']
-      : ['⏳', '🔄', '⚙️', '💭', '🎯'];
+      ? ['💨', '⚡', '💔', '🌪️', '❌']
+      : ['⏳', '🔄', '💭', '🎯', '⏸️'];
 
-    const newIcons = Array.from({ length: 12 }, (_, i) => ({
+    // Main icons
+    const newIcons = Array.from({ length: 8 }, (_, i) => ({
       id: Date.now() + i,
       x: Math.random() * 200 - 100,
       y: Math.random() * -150 - 50,
-      icon: icons[Math.floor(Math.random() * icons.length)]
+      icon: icons[Math.floor(Math.random() * icons.length)],
+      type: 'icon' as const
     }));
 
-    setExplosionIcons(newIcons);
-    setTimeout(() => setExplosionIcons([]), 800);
+    // Smoke particles
+    const smokeParticles = Array.from({ length: 6 }, (_, i) => ({
+      id: Date.now() + 100 + i,
+      x: Math.random() * 160 - 80,
+      y: Math.random() * -120 - 30,
+      icon: '💨',
+      type: 'smoke' as const
+    }));
+
+    // Gears
+    const gears = Array.from({ length: 4 }, (_, i) => ({
+      id: Date.now() + 200 + i,
+      x: Math.random() * 180 - 90,
+      y: Math.random() * -100 - 40,
+      icon: '⚙️',
+      type: 'gear' as const
+    }));
+
+    setExplosionIcons([...newIcons, ...smokeParticles, ...gears]);
+    setTimeout(() => setExplosionIcons([]), 1000);
   }, []);
 
   const handleSwipe = useCallback((direction: SwipeDirection) => {
@@ -259,16 +279,35 @@ const ExpertSelection: React.FC = () => {
 
       {/* Main Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg relative">
-        {/* Explosion Icons */}
+        {/* Explosion Icons, Smoke & Gears */}
         <AnimatePresence>
           {explosionIcons.map(icon => (
             <motion.span
               key={icon.id}
-              initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              animate={{ opacity: 0, scale: 2, x: icon.x, y: icon.y }}
+              initial={{ 
+                opacity: 1, 
+                scale: icon.type === 'gear' ? 0.5 : 1, 
+                x: 0, 
+                y: 0,
+                rotate: 0
+              }}
+              animate={{ 
+                opacity: 0, 
+                scale: icon.type === 'smoke' ? 3 : icon.type === 'gear' ? 1.5 : 2, 
+                x: icon.x, 
+                y: icon.y,
+                rotate: icon.type === 'gear' ? 360 : 0
+              }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="absolute text-2xl z-50 pointer-events-none"
+              transition={{ 
+                duration: icon.type === 'smoke' ? 1 : icon.type === 'gear' ? 0.8 : 0.6, 
+                ease: 'easeOut' 
+              }}
+              className={`absolute z-50 pointer-events-none ${
+                icon.type === 'smoke' ? 'text-4xl opacity-60' : 
+                icon.type === 'gear' ? 'text-3xl text-secondary' : 
+                'text-2xl'
+              }`}
               style={{ top: '50%', left: '50%' }}
             >
               {icon.icon}
@@ -305,9 +344,10 @@ const ExpertSelection: React.FC = () => {
                 key={i}
                 className="absolute w-full steampunk-border p-4"
                 style={{
-                  transform: `scale(${0.95 - i * 0.03}) translateY(${(i + 1) * 8}px)`,
+                  transform: `perspective(1000px) rotateX(8deg) scale(${0.95 - i * 0.03}) translateY(${(i + 1) * 12}px)`,
                   opacity: 0.5 - i * 0.2,
-                  zIndex: -i - 1
+                  zIndex: -i - 1,
+                  transformOrigin: 'center top'
                 }}
               />
             ))}
@@ -319,15 +359,17 @@ const ExpertSelection: React.FC = () => {
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               dragElastic={0.7}
               onDragEnd={handleDragEnd}
+              initial={{ rotateX: 8 }}
               animate={
-                swipeAnimation === 'right' ? { x: 500, opacity: 0, rotate: 20 } :
-                swipeAnimation === 'left' ? { x: -500, opacity: 0, rotate: -20 } :
-                swipeAnimation === 'down' ? { y: 500, opacity: 0 } :
-                { x: 0, y: 0, rotate: 0 }
+                swipeAnimation === 'right' ? { x: 500, opacity: 0, rotate: 20, rotateX: 0 } :
+                swipeAnimation === 'left' ? { x: -500, opacity: 0, rotate: -20, rotateX: 0 } :
+                swipeAnimation === 'down' ? { y: 500, opacity: 0, rotateX: 25 } :
+                { x: 0, y: 0, rotate: 0, rotateX: 8 }
               }
               transition={{ type: 'spring', damping: 20 }}
               className="steampunk-border p-4 md:p-6 w-full cursor-grab active:cursor-grabbing relative z-10"
-              whileDrag={{ scale: 1.02 }}
+              style={{ perspective: 1000, transformOrigin: 'center top' }}
+              whileDrag={{ scale: 1.02, rotateX: 0 }}
             >
               <Rivets />
               
