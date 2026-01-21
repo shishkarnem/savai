@@ -40,18 +40,29 @@ const ExpertSelection: React.FC = () => {
 
   // Restore history from ExpertHistory page if navigating back
   useEffect(() => {
-    if (state?.updatedHistory) {
+    if (state?.updatedHistory && state.updatedHistory.length > 0) {
       const restoredHistory = state.updatedHistory.map(item => ({
         ...item,
         timestamp: new Date(item.timestamp)
       }));
-      setSwipeHistory(restoredHistory);
+      
+      // Only update if history is different (prevent duplicates)
+      setSwipeHistory(prev => {
+        // If we already have this history, don't update
+        if (prev.length === restoredHistory.length) {
+          return prev;
+        }
+        return restoredHistory;
+      });
       
       // Update selected experts based on updated history
       const selected = restoredHistory
         .filter(item => item.direction === 'right')
         .map(item => item.expert);
       setSelectedExperts(selected);
+      
+      // Clear state to prevent re-triggering
+      window.history.replaceState({}, document.title);
     }
   }, [state]);
 
