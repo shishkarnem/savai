@@ -9,8 +9,14 @@ const GOOGLE_SHEET_ID = '1ScYSBpSTV-bu-9jxPlktjG15fVZoVtuwYdkWOVkBTDw';
 
 interface ExpertRow {
   sheet_row_id: string;
-  description: string | null;
-  photo_url: string | null;
+  pseudonym: string | null;      // G
+  greeting: string | null;       // H
+  tools: string | null;          // I
+  spheres: string | null;        // J
+  cases: string | null;          // K
+  other_info: string | null;     // L
+  description: string | null;    // N
+  photo_url: string | null;      // O
 }
 
 Deno.serve(async (req) => {
@@ -22,9 +28,9 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting Google Sheets sync for experts...');
     
-    // Query columns N (description) and O (photo_url) - columns are 0-indexed, N=13, O=14
-    // Using SQL-like query to get specific columns
-    const tq = `SELECT N, O`;
+    // Query columns G, H, I, J, K, L, N, O
+    // G=6, H=7, I=8, J=9, K=10, L=11, N=13, O=14 (0-indexed)
+    const tq = `SELECT G, H, I, J, K, L, N, O`;
     const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&tq=${encodeURIComponent(tq)}`;
 
     console.log('Fetching from Google Sheets...');
@@ -47,20 +53,33 @@ Deno.serve(async (req) => {
     console.log(`Found ${rows.length} rows in Google Sheets`);
     
     // Transform rows to expert data
+    // Columns order in SELECT: G, H, I, J, K, L, N, O -> indices 0-7
     const experts: ExpertRow[] = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const description = row.c?.[0]?.v || null;
-      const photoUrl = row.c?.[1]?.v || null;
+      const pseudonym = row.c?.[0]?.v || null;    // G
+      const greeting = row.c?.[1]?.v || null;     // H
+      const tools = row.c?.[2]?.v || null;        // I
+      const spheres = row.c?.[3]?.v || null;      // J
+      const cases = row.c?.[4]?.v || null;        // K
+      const otherInfo = row.c?.[5]?.v || null;    // L
+      const description = row.c?.[6]?.v || null;  // N
+      const photoUrl = row.c?.[7]?.v || null;     // O
       
-      // Skip empty rows
-      if (!description && !photoUrl) {
+      // Skip empty rows (need at least pseudonym or description)
+      if (!pseudonym && !description) {
         continue;
       }
       
       experts.push({
         sheet_row_id: `row_${i + 1}`, // 1-indexed row ID
-        description: description,
+        pseudonym,
+        greeting,
+        tools,
+        spheres,
+        cases,
+        other_info: otherInfo,
+        description,
         photo_url: photoUrl
       });
     }
@@ -80,6 +99,12 @@ Deno.serve(async (req) => {
         .upsert(
           {
             sheet_row_id: expert.sheet_row_id,
+            pseudonym: expert.pseudonym,
+            greeting: expert.greeting,
+            tools: expert.tools,
+            spheres: expert.spheres,
+            cases: expert.cases,
+            other_info: expert.other_info,
             description: expert.description,
             photo_url: expert.photo_url,
             updated_at: new Date().toISOString()

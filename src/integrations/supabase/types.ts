@@ -16,27 +16,45 @@ export type Database = {
     Tables: {
       experts: {
         Row: {
+          cases: string | null
           created_at: string
           description: string | null
+          greeting: string | null
           id: string
+          other_info: string | null
           photo_url: string | null
+          pseudonym: string | null
           sheet_row_id: string
+          spheres: string | null
+          tools: string | null
           updated_at: string
         }
         Insert: {
+          cases?: string | null
           created_at?: string
           description?: string | null
+          greeting?: string | null
           id?: string
+          other_info?: string | null
           photo_url?: string | null
+          pseudonym?: string | null
           sheet_row_id: string
+          spheres?: string | null
+          tools?: string | null
           updated_at?: string
         }
         Update: {
+          cases?: string | null
           created_at?: string
           description?: string | null
+          greeting?: string | null
           id?: string
+          other_info?: string | null
           photo_url?: string | null
+          pseudonym?: string | null
           sheet_row_id?: string
+          spheres?: string | null
+          tools?: string | null
           updated_at?: string
         }
         Relationships: []

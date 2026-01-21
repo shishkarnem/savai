@@ -1,0 +1,8 @@
+-- Add new columns for expert details
+ALTER TABLE public.experts 
+ADD COLUMN IF NOT EXISTS pseudonym TEXT,
+ADD COLUMN IF NOT EXISTS greeting TEXT,
+ADD COLUMN IF NOT EXISTS tools TEXT,
+ADD COLUMN IF NOT EXISTS spheres TEXT,
+ADD COLUMN IF NOT EXISTS cases TEXT,
+ADD COLUMN IF NOT EXISTS other_info TEXT;
