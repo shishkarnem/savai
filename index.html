@@ -1,26 +1,91 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>SAV AI | Steampunk Glass Edition</title>
+    <meta name="description" content="SAV AI Sales Assistant - Механический разум для коммерции. AI-powered продавец для вашего бизнеса." />
+    <meta name="author" content="SAV AI Steam-Tech" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="SAV AI | Steampunk Sales Assistant" />
+    <meta property="og:description" content="Механический разум для коммерции. AI-powered продавец для вашего бизнеса." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:site" content="@SAVAI" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Model Viewer for 3D -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    
+    <style>
+      /* Background Model Styles - must be in head for early loading */
+      #bg-model-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+        pointer-events: auto;
+        opacity: 0;
+        transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #bg-model-container.active {
+        opacity: 0.6;
+      }
+      #bg-model {
+        width: 100%; 
+        height: 100%;
+        filter: brightness(0.4) contrast(1.1);
+      }
+      #bg-model::part(default-progress-bar) {
+        background-color: #D4AF37;
+        height: 4px;
+      }
+      .gear-bg {
+        position: fixed;
+        z-index: -2;
+        opacity: 0.1;
+        color: #8B4513;
+        animation: rotateBg 20s linear infinite;
+      }
+      @keyframes rotateBg {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <!-- 3D Model Background Container -->
+    <div id="bg-model-container">
+      <model-viewer 
+        id="bg-model"
+        alt="Steampunk Machine"
+        auto-rotate
+        rotation-per-second="20deg"
+        shadow-intensity="1" 
+        camera-orbit="0deg 75deg 105%" 
+        field-of-view="35deg"
+        disable-zoom
+        disable-pan
+        reveal="auto"
+        exposure="0.5"
+        loading="eager"
+      ></model-viewer>
+    </div>
+    
+    <!-- Background Gears -->
+    <i class="fa-solid fa-gear gear-bg text-9xl" style="top: 40px; left: -40px;"></i>
+    <i class="fa-solid fa-gear gear-bg text-7xl" style="bottom: 80px; right: -20px; animation-direction: reverse;"></i>
+    
+    <!-- App Root -->
+    <div id="root" style="position: relative; z-index: 10;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
