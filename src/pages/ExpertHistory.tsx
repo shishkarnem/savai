@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, Heart, ThumbsDown, ChevronDown, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Heart, ThumbsDown, ChevronDown, X, Sparkles, Filter } from 'lucide-react';
 import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
 import Rivets from '@/components/Rivets';
 
@@ -24,6 +24,7 @@ const ExpertHistory: React.FC = () => {
   const [history, setHistory] = useState<SwipeHistoryItem[]>([]);
   const [selectedExpert, setSelectedExpert] = useState<SwipeHistoryItem | null>(null);
   const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string }[]>([]);
+  const [activeFilter, setActiveFilter] = useState<SwipeDirection | 'all'>('all');
 
   useEffect(() => {
     if (state?.history) {
@@ -124,53 +125,92 @@ const ExpertHistory: React.FC = () => {
         <div className="w-20" /> {/* Spacer for centering */}
       </header>
 
-      {/* Stats */}
+      {/* Stats & Filters */}
       <div className="w-full max-w-4xl mx-auto mb-6">
         <div className="steampunk-border p-4">
           <Rivets />
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <div>
-              <p className="text-2xl md:text-3xl text-primary font-bold">{stats.total}</p>
-              <p className="text-xs opacity-60 uppercase">Всего</p>
-            </div>
-            <div>
-              <p className="text-2xl md:text-3xl text-green-400 font-bold">{stats.selected}</p>
-              <p className="text-xs opacity-60 uppercase">Выбрано</p>
-            </div>
-            <div>
-              <p className="text-2xl md:text-3xl text-red-400 font-bold">{stats.rejected}</p>
-              <p className="text-xs opacity-60 uppercase">Отказов</p>
-            </div>
-            <div>
-              <p className="text-2xl md:text-3xl text-yellow-400 font-bold">{stats.skipped}</p>
-              <p className="text-xs opacity-60 uppercase">Пропущено</p>
-            </div>
+          <div className="grid grid-cols-4 gap-2 md:gap-4 text-center">
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className={`p-2 rounded-xl transition-all ${
+                activeFilter === 'all' 
+                  ? 'bg-primary/20 border border-primary/50' 
+                  : 'hover:bg-foreground/5'
+              }`}
+            >
+              <p className="text-xl md:text-3xl text-primary font-bold">{stats.total}</p>
+              <p className="text-[10px] md:text-xs opacity-60 uppercase">Всего</p>
+            </button>
+            <button 
+              onClick={() => setActiveFilter('right')}
+              className={`p-2 rounded-xl transition-all ${
+                activeFilter === 'right' 
+                  ? 'bg-green-500/20 border border-green-500/50' 
+                  : 'hover:bg-foreground/5'
+              }`}
+            >
+              <p className="text-xl md:text-3xl text-green-400 font-bold">{stats.selected}</p>
+              <p className="text-[10px] md:text-xs opacity-60 uppercase">Выбрано</p>
+            </button>
+            <button 
+              onClick={() => setActiveFilter('left')}
+              className={`p-2 rounded-xl transition-all ${
+                activeFilter === 'left' 
+                  ? 'bg-red-500/20 border border-red-500/50' 
+                  : 'hover:bg-foreground/5'
+              }`}
+            >
+              <p className="text-xl md:text-3xl text-red-400 font-bold">{stats.rejected}</p>
+              <p className="text-[10px] md:text-xs opacity-60 uppercase">Отказов</p>
+            </button>
+            <button 
+              onClick={() => setActiveFilter('down')}
+              className={`p-2 rounded-xl transition-all ${
+                activeFilter === 'down' 
+                  ? 'bg-yellow-500/20 border border-yellow-500/50' 
+                  : 'hover:bg-foreground/5'
+              }`}
+            >
+              <p className="text-xl md:text-3xl text-yellow-400 font-bold">{stats.skipped}</p>
+              <p className="text-[10px] md:text-xs opacity-60 uppercase">Пропущено</p>
+            </button>
           </div>
         </div>
       </div>
 
       {/* History Grid */}
       <div className="w-full max-w-4xl mx-auto flex-1">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {history.slice().reverse().map((item, index) => (
-            <motion.div
-              key={`${item.expert.id}-${index}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => setSelectedExpert(item)}
-              className="cursor-pointer hover:scale-[1.02] transition-transform"
-            >
-              <ExpertCard
-                expert={item.expert}
-                currentDirection={item.direction}
-                showActions={true}
-                onAction={(dir) => handleChangeDirection(item.expert.id, dir)}
-                compact={true}
-              />
-            </motion.div>
-          ))}
-        </div>
+        {history.filter(h => activeFilter === 'all' || h.direction === activeFilter).length === 0 ? (
+          <div className="text-center py-12 opacity-50">
+            <Filter size={48} className="mx-auto mb-4 opacity-30" />
+            <p>Нет экспертов с таким статусом</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {history
+              .filter(h => activeFilter === 'all' || h.direction === activeFilter)
+              .slice()
+              .reverse()
+              .map((item, index) => (
+                <motion.div
+                  key={`${item.expert.id}-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => setSelectedExpert(item)}
+                  className="cursor-pointer hover:scale-[1.02] transition-transform"
+                >
+                  <ExpertCard
+                    expert={item.expert}
+                    currentDirection={item.direction}
+                    showActions={true}
+                    onAction={(dir) => handleChangeDirection(item.expert.id, dir)}
+                    compact={true}
+                  />
+                </motion.div>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Expert Detail Modal */}
