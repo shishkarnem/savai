@@ -68,7 +68,7 @@ const ExpertCard: React.FC<ExpertCardProps> = ({
 
       {/* Status Badge */}
       {currentDirection && (
-        <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getDirectionColor(currentDirection)}`}>
+        <div className={`absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-1 rounded-full text-xs backdrop-blur-sm ${getDirectionColor(currentDirection)}`}>
           {getDirectionIcon(currentDirection)}
           <span>{getDirectionLabel(currentDirection)}</span>
         </div>
