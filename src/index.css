@@ -1,96 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Unbounded:wght@400;700;900&family=Pirata+One&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Steampunk Color Palette */
+    --color-brass: 43 77% 52%;
+    --color-copper: 25 53% 46%;
+    --color-bronze: 25 75% 31%;
+    --color-dark: 10 27% 8%;
+    --color-leather: 10 24% 13%;
+    --color-paper: 60 56% 91%;
+    
+    /* Glass effects */
+    --glass-bg: rgba(26, 15, 13, 0.45);
+    --glass-border: rgba(212, 175, 55, 0.25);
+    
+    /* Semantic tokens mapped to steampunk */
+    --background: 10 27% 8%;
+    --foreground: 60 56% 91%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 10 24% 13%;
+    --card-foreground: 60 56% 91%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 10 24% 13%;
+    --popover-foreground: 60 56% 91%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 43 77% 52%;
+    --primary-foreground: 10 27% 8%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 25 53% 46%;
+    --secondary-foreground: 60 56% 91%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 25 75% 31%;
+    --muted-foreground: 60 56% 70%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 25 53% 46%;
+    --accent-foreground: 60 56% 91%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 56% 91%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 43 77% 52% / 0.25;
+    --input: 43 77% 52% / 0.3;
+    --ring: 43 77% 52%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 10 24% 13%;
+    --sidebar-foreground: 60 56% 91%;
+    --sidebar-primary: 43 77% 52%;
+    --sidebar-primary-foreground: 10 27% 8%;
+    --sidebar-accent: 25 53% 46%;
+    --sidebar-accent-foreground: 60 56% 91%;
+    --sidebar-border: 43 77% 52% / 0.2;
+    --sidebar-ring: 43 77% 52%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --background: 10 27% 8%;
+    --foreground: 60 56% 91%;
+    --card: 10 24% 13%;
+    --card-foreground: 60 56% 91%;
+    --popover: 10 24% 13%;
+    --popover-foreground: 60 56% 91%;
+    --primary: 43 77% 52%;
+    --primary-foreground: 10 27% 8%;
+    --secondary: 25 53% 46%;
+    --secondary-foreground: 60 56% 91%;
+    --muted: 25 75% 31%;
+    --muted-foreground: 60 56% 70%;
+    --accent: 25 53% 46%;
+    --accent-foreground: 60 56% 91%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --destructive-foreground: 60 56% 91%;
+    --border: 43 77% 52% / 0.25;
+    --input: 43 77% 52% / 0.3;
+    --ring: 43 77% 52%;
   }
 }
 
@@ -99,7 +87,176 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  body {
+  body { 
+    font-family: 'Special Elite', system-ui, serif; 
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(139, 69, 19, 0.25) 0%, transparent 80%),
+      url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+    background-attachment: fixed;
   }
+
+  h1, h2, h3, .steampunk-header {
+    font-family: 'Pirata One', cursive;
+    letter-spacing: 0.05em;
+    @apply text-primary;
+    text-shadow: 2px 2px 0px hsl(var(--color-bronze)), 4px 4px 10px rgba(0,0,0,0.5);
+  }
+}
+
+@layer components {
+  /* Apple-style Liquid Glass Container */
+  .steampunk-border {
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: 
+      0 12px 40px 0 rgba(0, 0, 0, 0.7),
+      inset 0 0 40px rgba(184, 115, 51, 0.05);
+    position: relative;
+    border-radius: 20px;
+    z-index: 10;
+  }
+
+  .steampunk-border::before {
+    content: '';
+    position: absolute;
+    top: -4px; left: -4px; right: -4px; bottom: -4px;
+    border: 1px solid hsl(var(--color-brass));
+    pointer-events: none;
+    opacity: 0.15;
+    border-radius: 24px;
+  }
+
+  /* Glassmorphic Steampunk Button */
+  .steampunk-button {
+    background: rgba(184, 115, 51, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    @apply text-foreground;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    box-shadow: 
+      0 8px 24px rgba(0,0,0,0.4),
+      inset 0 1px 1px rgba(255,255,255,0.15);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    text-transform: uppercase;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border-radius: 12px;
+  }
+
+  .steampunk-button:hover {
+    background: rgba(212, 175, 55, 0.45);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(212, 175, 55, 0.35);
+    border-color: hsl(var(--color-brass));
+  }
+
+  .steampunk-button:active {
+    transform: translateY(1px);
+    background: rgba(139, 69, 19, 0.55);
+  }
+
+  /* Glass Input */
+  .glass-input {
+    background: rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border) !important;
+    @apply text-foreground;
+    border-radius: 12px !important;
+  }
+
+  .glass-input::placeholder {
+    @apply text-muted-foreground;
+  }
+
+  /* Rivet decoration */
+  .rivet {
+    width: 8px;
+    height: 8px;
+    background: radial-gradient(circle at 30% 30%, hsl(var(--color-brass)), hsl(var(--color-bronze)));
+    border-radius: 50%;
+    position: absolute;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    opacity: 0.7;
+  }
+
+  /* Gear animation */
+  .gear {
+    animation: rotate 20s linear infinite;
+    @apply text-secondary;
+    opacity: 0.1;
+    position: fixed;
+    z-index: -2;
+  }
+
+  /* Steam fade animation */
+  .steam-fade {
+    animation: steamFade 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Background Model Styles */
+  #bg-model-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  #bg-model-container.active {
+    opacity: 0.6;
+  }
+
+  #bg-model {
+    width: 100%; 
+    height: 100%;
+    filter: brightness(0.4) contrast(1.1);
+  }
+
+  /* Custom model viewer progress bar */
+  #bg-model::part(default-progress-bar) {
+    background-color: hsl(var(--color-brass));
+    height: 4px;
+  }
+}
+
+@layer utilities {
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+  ::-webkit-scrollbar-thumb { 
+    background: rgba(139, 69, 19, 0.4); 
+    border-radius: 10px;
+  }
+}
+
+/* Keyframes */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes steamFade {
+  from { opacity: 0; transform: scale(0.97) translateY(20px); filter: blur(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 640px) {
+  body { font-size: 13px; }
+  h1 { font-size: 1.6rem !important; }
+  h2 { font-size: 1.3rem !important; }
+  p { font-size: 0.9rem !important; }
+  .steampunk-border { padding: 1rem !important; }
+  .steampunk-button { padding: 0.75rem !important; font-size: 0.85rem !important; }
 }
