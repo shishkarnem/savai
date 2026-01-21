@@ -1,23 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft } from 'lucide-react';
 import Rivets from '@/components/Rivets';
-
-interface Expert {
-  id: string;
-  pseudonym: string | null;
-  greeting: string | null;
-  tools: string | null;
-  spheres: string | null;
-  cases: string | null;
-  other_info: string | null;
-  description: string | null;
-  photo_url: string | null;
-}
-
-type SwipeDirection = 'left' | 'right' | 'down';
+import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -25,14 +12,20 @@ interface SwipeHistoryItem {
   timestamp: Date;
 }
 
+interface LocationState {
+  updatedHistory?: SwipeHistoryItem[];
+}
+
 const ExpertSelection: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+
   const [experts, setExperts] = useState<Expert[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipeHistory, setSwipeHistory] = useState<SwipeHistoryItem[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
   const [swipeAnimation, setSwipeAnimation] = useState<SwipeDirection | null>(null);
   const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +33,23 @@ const ExpertSelection: React.FC = () => {
   useEffect(() => {
     fetchExperts();
   }, []);
+
+  // Restore history from ExpertHistory page if navigating back
+  useEffect(() => {
+    if (state?.updatedHistory) {
+      const restoredHistory = state.updatedHistory.map(item => ({
+        ...item,
+        timestamp: new Date(item.timestamp)
+      }));
+      setSwipeHistory(restoredHistory);
+      
+      // Update selected experts based on updated history
+      const selected = restoredHistory
+        .filter(item => item.direction === 'right')
+        .map(item => item.expert);
+      setSelectedExperts(selected);
+    }
+  }, [state]);
 
   const fetchExperts = async () => {
     setLoading(true);
@@ -123,6 +133,15 @@ const ExpertSelection: React.FC = () => {
     fetchExperts();
   };
 
+  const navigateToHistory = () => {
+    navigate('/experts/history', {
+      state: {
+        history: swipeHistory,
+        selectedExperts: selectedExperts
+      }
+    });
+  };
+
   const currentExpert = experts[currentIndex];
   const isComplete = currentIndex >= experts.length;
 
@@ -155,11 +174,17 @@ const ExpertSelection: React.FC = () => {
         <h1 className="text-2xl md:text-3xl text-center">Подбор Эксперта</h1>
         <div className="flex gap-2">
           <button 
-            onClick={() => setShowHistory(!showHistory)}
-            className="p-2 rounded-full bg-foreground/5 border border-foreground/10 hover:bg-foreground/10 transition-all"
+            onClick={navigateToHistory}
+            className="p-2 rounded-full bg-foreground/5 border border-foreground/10 hover:bg-foreground/10 transition-all relative"
             title="История свайпов"
+            disabled={swipeHistory.length === 0}
           >
             <History size={18} className="text-primary" />
+            {swipeHistory.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center">
+                {swipeHistory.length}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setShowInstructions(true)}
@@ -234,69 +259,6 @@ const ExpertSelection: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* History Panel */}
-      <AnimatePresence>
-        {showHistory && (
-          <motion.div 
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25 }}
-            className="fixed right-0 top-0 h-full w-80 bg-card/95 backdrop-blur-xl border-l border-foreground/10 z-40 p-4 overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl text-primary">История свайпов</h3>
-              <button onClick={() => setShowHistory(false)} className="text-foreground/50 hover:text-foreground">
-                <X size={20} />
-              </button>
-            </div>
-
-            {swipeHistory.length === 0 ? (
-              <p className="text-center opacity-50 italic">Пока пусто...</p>
-            ) : (
-              <div className="space-y-2">
-                {swipeHistory.slice().reverse().map((item, i) => (
-                  <div 
-                    key={i}
-                    className={`p-3 rounded-xl border ${
-                      item.direction === 'right' ? 'bg-green-500/10 border-green-500/30' :
-                      item.direction === 'left' ? 'bg-red-500/10 border-red-500/30' :
-                      'bg-yellow-500/10 border-yellow-500/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {item.direction === 'right' ? <Heart size={14} className="text-green-400" /> :
-                       item.direction === 'left' ? <ThumbsDown size={14} className="text-red-400" /> :
-                       <ChevronDown size={14} className="text-yellow-400" />}
-                      <span className="font-bold text-sm">
-                        {item.expert.greeting}{item.expert.pseudonym}
-                      </span>
-                    </div>
-                    <p className="text-[10px] opacity-50 mt-1">
-                      {item.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {selectedExperts.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-foreground/10">
-                <h4 className="text-primary text-sm mb-2">Выбранные ({selectedExperts.length})</h4>
-                <div className="space-y-1">
-                  {selectedExperts.map((exp, i) => (
-                    <div key={i} className="text-xs flex items-center gap-2">
-                      <Check size={12} className="text-green-400" />
-                      {exp.greeting}{exp.pseudonym}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Main Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg relative">
         {/* Explosion Icons */}
@@ -328,9 +290,14 @@ const ExpertSelection: React.FC = () => {
             <p className="opacity-70 mb-6">
               Выбрано экспертов: <span className="text-primary font-bold">{selectedExperts.length}</span>
             </p>
-            <button onClick={resetSwipes} className="steampunk-button px-6 py-3">
-              <RotateCcw size={18} /> Пройти заново
-            </button>
+            <div className="flex flex-col gap-3">
+              <button onClick={navigateToHistory} className="steampunk-button px-6 py-3">
+                <History size={18} /> Посмотреть историю
+              </button>
+              <button onClick={resetSwipes} className="steampunk-button px-6 py-3 opacity-70">
+                <RotateCcw size={18} /> Пройти заново
+              </button>
+            </div>
           </motion.div>
         ) : currentExpert && (
           <>
@@ -380,6 +347,14 @@ const ExpertSelection: React.FC = () => {
                       {currentExpert.greeting}{currentExpert.pseudonym}
                     </h3>
                   </div>
+                </div>
+              )}
+
+              {!currentExpert.photo_url && (
+                <div className="mb-4">
+                  <h3 className="text-2xl md:text-3xl text-primary">
+                    {currentExpert.greeting}{currentExpert.pseudonym}
+                  </h3>
                 </div>
               )}
 
