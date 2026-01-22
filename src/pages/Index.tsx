@@ -164,7 +164,7 @@ const Index: React.FC = () => {
     }
   };
 
-  const handleSelectPlan = async (level: PlanLevel) => {
+  const handleSelectPlan = async (level: PlanLevel, paymentType: 'monthly' | 'onetime') => {
     if (!businessInfo) return;
     setIsLoading(true);
     setSelectedPlan(level);
@@ -175,6 +175,10 @@ const Index: React.FC = () => {
         category: businessInfo.category,
         package: level
       });
+      // Adjust price for onetime payment
+      if (data && paymentType === 'onetime' && data.priceMonth) {
+        data.priceMonth = data.priceMonth * 6;
+      }
       const presentation = await generatePlanPresentation(businessInfo, level);
       setPlanDetails({ data, presentation });
       setStep('details');
