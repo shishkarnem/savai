@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, Repeat, Zap, Info, Cog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, Cog } from 'lucide-react';
 import Rivets from './Rivets';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -21,7 +21,6 @@ interface FormData {
   department: string;
   employeeCount: string;
   averageSalary: string;
-  paymentType: 'monthly' | 'onetime' | '';
   functionality: string;
   maintenance: string;
   promoCode: string;
@@ -75,7 +74,6 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     department: '',
     employeeCount: '',
     averageSalary: '',
-    paymentType: '',
     functionality: '',
     maintenance: '',
     promoCode: ''
@@ -85,7 +83,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const TOTAL_STEPS = 8;
+  const TOTAL_STEPS = 7;
 
   const canProceed = (): boolean => {
     switch (currentStep) {
@@ -98,12 +96,10 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
       case 4:
         return !!formData.averageSalary && parseInt(formData.averageSalary) > 0;
       case 5:
-        return !!formData.paymentType;
-      case 6:
         return !!formData.functionality;
-      case 7:
+      case 6:
         return !!formData.maintenance;
-      case 8:
+      case 7:
         return true;
       default:
         return false;
@@ -122,22 +118,15 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     }
   };
 
-  // Calculate estimated cost based on payment type
+  // Calculate estimated cost
   const calculateEstimate = () => {
     const employees = parseInt(formData.employeeCount) || 0;
     const salary = parseInt(formData.averageSalary) || 0;
-    const baseCost = employees * salary;
-    
-    if (formData.paymentType === 'onetime') {
-      return baseCost * 6;
-    }
-    return baseCost;
+    return employees * salary;
   };
 
   const submitForm = async () => {
     setIsSubmitting(true);
-    
-    const paymentTypeLabel = formData.paymentType === 'monthly' ? 'Ежемесячно (Тариф)' : 'Единоразово (x6, 50/50)';
     
     const payload = {
       formUrl: FORM_URL,
@@ -149,7 +138,6 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
       'Подразделение': DEPARTMENT_LABELS[formData.department] || formData.department,
       'Сотрудников': formData.employeeCount,
       'Средняя ЗП': formData.averageSalary,
-      'Тип оплаты': paymentTypeLabel,
       'Выбранный эксперт': selectedExpert,
       'Функционал': formData.functionality.slice(0, 2000),
       'Обслуживание': formData.maintenance,
@@ -342,130 +330,6 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
         return (
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm mb-4">
-              Выберите модель оплаты для вашего ИИ-бота. От этого зависит итоговая стоимость и условия работы.
-            </p>
-            
-            <div className="grid gap-4">
-              {/* Monthly Payment Option */}
-              <button
-                onClick={() => updateField('paymentType', 'monthly')}
-                className={`relative p-5 rounded-lg border text-left transition-all overflow-hidden ${
-                  formData.paymentType === 'monthly'
-                    ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
-                    : 'border-primary/20 bg-background/30 hover:border-primary/50'
-                }`}
-              >
-                {/* Steampunk decorative gear */}
-                <div className="absolute -right-4 -top-4 opacity-10">
-                  <Cog className="w-20 h-20 text-primary animate-spin" style={{ animationDuration: '20s' }} />
-                </div>
-                
-                <div className="flex items-start gap-4 relative z-10">
-                  <div className={`p-3 rounded-lg ${formData.paymentType === 'monthly' ? 'bg-primary/20' : 'bg-primary/10'}`}>
-                    <Repeat className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg mb-1">⚙️ Ежемесячный Тариф</div>
-                    <div className="text-sm text-muted-foreground mb-3">
-                      Оплата раз в месяц. Стандартная модель подписки.
-                    </div>
-                    
-                    {/* Info panel */}
-                    <div className="p-3 rounded border border-primary/20 bg-background/50 space-y-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span>Токены включены в тариф</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span>Можно отменить в любой момент</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span>Бесплатные обновления бота</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-primary font-medium mt-2 pt-2 border-t border-primary/20">
-                        <Wallet className="w-3 h-3" />
-                        <span>≈ {(parseInt(formData.averageSalary) * parseInt(formData.employeeCount || '0')).toLocaleString()}₽/мес</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              {/* One-time Payment Option */}
-              <button
-                onClick={() => updateField('paymentType', 'onetime')}
-                className={`relative p-5 rounded-lg border text-left transition-all overflow-hidden ${
-                  formData.paymentType === 'onetime'
-                    ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
-                    : 'border-primary/20 bg-background/30 hover:border-primary/50'
-                }`}
-              >
-                {/* Steampunk decorative lightning */}
-                <div className="absolute -right-2 -top-2 opacity-10">
-                  <Zap className="w-16 h-16 text-yellow-500" />
-                </div>
-                
-                <div className="flex items-start gap-4 relative z-10">
-                  <div className={`p-3 rounded-lg ${formData.paymentType === 'onetime' ? 'bg-yellow-500/20' : 'bg-yellow-500/10'}`}>
-                    <Zap className="w-6 h-6 text-yellow-500" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-lg mb-1">⚡ Единоразовая Разработка</div>
-                    <div className="text-sm text-muted-foreground mb-3">
-                      Оплата 50/50 за разработку. Бот — ваша собственность.
-                    </div>
-                    
-                    {/* Info panel */}
-                    <div className="p-3 rounded border border-yellow-500/30 bg-background/50 space-y-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span>Полное владение ботом</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Check className="w-3 h-3 text-green-500" />
-                        <span>Нет ежемесячных платежей</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-yellow-500">
-                        <Info className="w-3 h-3" />
-                        <span>Токены оплачиваются отдельно</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-primary font-medium mt-2 pt-2 border-t border-primary/20">
-                        <Wallet className="w-3 h-3" />
-                        <span>≈ {(parseInt(formData.averageSalary) * parseInt(formData.employeeCount || '0') * 6).toLocaleString()}₽ (x6)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            {/* Comparison tooltip */}
-            {formData.paymentType && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-lg border border-primary/30 bg-gradient-to-br from-background/80 to-primary/5"
-              >
-                <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                  <Cog className="w-4 h-4 text-primary" />
-                  {formData.paymentType === 'monthly' ? 'Паровой Двигатель Подписки' : 'Механизм Полного Владения'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formData.paymentType === 'monthly' 
-                    ? 'Ваш ИИ-бот работает как арендованный паровой двигатель — мы обеспечиваем топливо (токены) и техобслуживание. Идеально для быстрого старта.'
-                    : 'Вы получаете чертежи и механизм целиком. Стоимость x6 от тарифа, оплата 50% при старте и 50% при сдаче. Топливо (токены) — за ваш счёт.'}
-                </p>
-              </motion.div>
-            )}
-          </div>
-        );
-
-      case 6:
-        return (
-          <div className="space-y-4">
-            <p className="text-muted-foreground text-sm mb-4">
               Опишите функционал ИИ-бота — что он должен делать, какие процессы автоматизировать.
             </p>
             
@@ -488,7 +352,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
           </div>
         );
 
-      case 7:
+      case 6:
         return (
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm mb-4">
@@ -533,9 +397,8 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
           </div>
         );
 
-      case 8:
+      case 7:
         const estimatedCost = calculateEstimate();
-        const paymentLabel = formData.paymentType === 'monthly' ? 'Ежемесячно' : 'Единоразово (x6)';
         
         return (
           <div className="space-y-4">
@@ -567,10 +430,6 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
                 <p>🌆 {formData.city}</p>
                 <p>📂 {DEPARTMENT_LABELS[formData.department]}</p>
                 <p>👥 {formData.employeeCount} сотр. × {parseInt(formData.averageSalary).toLocaleString()}₽</p>
-                <p className="flex items-center gap-1">
-                  {formData.paymentType === 'monthly' ? <Repeat className="w-3 h-3" /> : <Zap className="w-3 h-3 text-yellow-500" />}
-                  Тип оплаты: {paymentLabel}
-                </p>
                 <p>🔧 Обслуживание: {formData.maintenance}</p>
                 {formData.promoCode && <p>🏷️ Промокод: {formData.promoCode}</p>}
               </div>
@@ -581,15 +440,9 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
                   <span className="text-sm font-medium">Примерная стоимость:</span>
                   <span className="text-lg font-bold text-primary">
                     ≈ {estimatedCost.toLocaleString()}₽
-                    {formData.paymentType === 'monthly' && <span className="text-xs font-normal text-muted-foreground">/мес</span>}
+                    <span className="text-xs font-normal text-muted-foreground">/мес</span>
                   </span>
                 </div>
-                {formData.paymentType === 'onetime' && (
-                  <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
-                    <Info className="w-3 h-3" />
-                    Оплата 50/50: {(estimatedCost / 2).toLocaleString()}₽ при старте + {(estimatedCost / 2).toLocaleString()}₽ при сдаче
-                  </p>
-                )}
               </div>
             </div>
           </div>
