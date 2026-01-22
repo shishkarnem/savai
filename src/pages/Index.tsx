@@ -190,7 +190,7 @@ const Index: React.FC = () => {
         {step === 'expert' && <ExpertStep onRestart={() => window.location.reload()} />}
       </main>
       <footer className="mt-8 py-6 text-center opacity-20 text-[8px] md:text-[10px] tracking-[0.3em] uppercase font-bold">
-        © 1885-2025 SAV AI • Королевская Академия Робототехники
+        © 1885-2026 SAV AI • Королевская Академия Робототехники
       </footer>
     </div>;
 };
