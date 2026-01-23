@@ -8,22 +8,70 @@ export interface TableColumn {
 }
 
 export const DEFAULT_TABLE_COLUMNS: TableColumn[] = [
+  // Основные
   { key: 'project_code', label: 'Код', visible: true },
   { key: 'full_name', label: 'Клиент', visible: true },
   { key: 'telegram_client', label: 'Telegram', visible: true },
+  { key: 'telegram_id', label: 'Telegram ID', visible: false },
   { key: 'project', label: 'Проект', visible: true },
   { key: 'status', label: 'Статус', visible: true },
+  { key: 'send_status', label: 'Статус отправки', visible: false },
+  { key: 'channel', label: 'Канал', visible: false },
+  
+  // Эксперт и тариф
   { key: 'expert', label: 'Эксперт', visible: true },
+  { key: 'selected_expert', label: 'Выбранный эксперт', visible: false },
   { key: 'tariff', label: 'Тариф', visible: true },
+  
+  // Локация и компания
   { key: 'city', label: 'Город', visible: true },
   { key: 'product', label: 'Продукт', visible: false },
   { key: 'department', label: 'Подразделение', visible: false },
+  { key: 'department_text', label: 'Текст подразделения', visible: false },
   { key: 'employees_count', label: 'Сотрудников', visible: false },
+  { key: 'functionality', label: 'Функционал', visible: false },
+  { key: 'service', label: 'Сервис', visible: false },
+  { key: 'service_type', label: 'Тип сервиса', visible: false },
+  
+  // Финансы
   { key: 'sav_cost', label: 'Стоимость SAV', visible: false },
-  { key: 'service_price', label: 'Цена обслуживания', visible: false },
-  { key: 'calculator_date', label: 'Дата калькулятора', visible: false },
+  { key: 'service_price', label: 'Цена услуги', visible: false },
+  { key: 'software_price', label: 'Цена ПО', visible: false },
+  { key: 'ai_tokens_price', label: 'Цена токенов', visible: false },
+  { key: 'ai_employee_cost', label: 'Стоимость ИИ сотрудника', visible: false },
+  { key: 'avg_salary', label: 'Средняя ЗП', visible: false },
+  { key: 'real_salary', label: 'Реальная ЗП', visible: false },
+  { key: 'region_salary', label: 'ЗП региона', visible: false },
+  { key: 'payback', label: 'Окупаемость', visible: false },
+  { key: 'refund_amount', label: 'Сумма возврата', visible: false },
+  
+  // Даты
   { key: 'start_date', label: 'Дата старта', visible: false },
+  { key: 'calculator_date', label: 'Дата калькулятора', visible: false },
+  { key: 'tariff_date', label: 'Дата тарифа', visible: false },
+  { key: 'expert_date', label: 'Дата эксперта', visible: false },
+  { key: 'payment_date', label: 'Дата оплаты', visible: false },
+  { key: 'service_start_date', label: 'Начало обслуживания', visible: false },
+  { key: 'work_start_date', label: 'Начало работы', visible: false },
+  { key: 'work_end_date', label: 'Конец работы', visible: false },
+  { key: 'act_date', label: 'Дата акта', visible: false },
+  { key: 'block_date', label: 'Дата блокировки', visible: false },
+  { key: 'rejection_date', label: 'Дата отказа', visible: false },
+  
+  // ProTalk
+  { key: 'protalk_name', label: 'Имя ProTalk', visible: false },
+  { key: 'protalk_id', label: 'ID ProTalk', visible: false },
+  { key: 'protalk_send_status', label: 'Статус ProTalk', visible: false },
+  { key: 'script_id', label: 'ID скрипта', visible: false },
+  { key: 'bot_token', label: 'Токен бота', visible: false },
+  
+  // Тексты
   { key: 'comment', label: 'Комментарий', visible: false },
+  { key: 'last_message', label: 'Последнее сообщение', visible: false },
+  { key: 'reminder_text', label: 'Текст напоминания', visible: false },
+  { key: 'reminder_time', label: 'Время напоминания', visible: false },
+  { key: 'software_text', label: 'Текст ПО', visible: false },
+  { key: 'kp_text', label: 'Текст КП', visible: false },
 ];
 
 // Kanban card fields configuration
@@ -34,6 +82,7 @@ export interface KanbanField {
 }
 
 export const DEFAULT_KANBAN_FIELDS: KanbanField[] = [
+  { key: 'avatar', label: 'Аватар Telegram', visible: true },
   { key: 'full_name', label: 'Имя клиента', visible: true },
   { key: 'project_code', label: 'Код проекта', visible: true },
   { key: 'telegram_client', label: 'Telegram', visible: true },
@@ -43,7 +92,9 @@ export const DEFAULT_KANBAN_FIELDS: KanbanField[] = [
   { key: 'expert', label: 'Эксперт', visible: false },
   { key: 'product', label: 'Продукт', visible: false },
   { key: 'sav_cost', label: 'Стоимость SAV', visible: false },
+  { key: 'service_price', label: 'Цена услуги', visible: false },
   { key: 'calculator_date', label: 'Дата калькулятора', visible: false },
+  { key: 'last_message', label: 'Последнее сообщение', visible: false },
 ];
 
 // Client card sections configuration
