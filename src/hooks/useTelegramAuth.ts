@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TelegramUser {
@@ -27,8 +27,6 @@ interface UseTelegramAuthResult {
   isNewUser: boolean;
   isTelegramWebApp: boolean;
   error: string | null;
-  isDevMode: boolean;
-  toggleDevMode: () => void;
 }
 
 // Extend Window interface for Telegram WebApp
@@ -76,12 +74,24 @@ const isLovablePreview = typeof window !== 'undefined' && (
   window.location.hostname === '127.0.0.1'
 );
 
-// Get initial dev mode state from localStorage (default to true in Lovable preview)
-const getInitialDevMode = (): boolean => {
+// Get dev mode from localStorage
+const getDevMode = (): boolean => {
   if (typeof window === 'undefined') return false;
   const stored = localStorage.getItem('sav-dev-mode');
   if (stored !== null) return stored === 'true';
   return isLovablePreview; // Default to true if in Lovable
+};
+
+// Mock dev user profile
+const DEV_USER_PROFILE: TelegramProfile = {
+  id: 'dev-mode-id',
+  telegram_id: 123456789,
+  first_name: 'Разработчик',
+  last_name: 'SAV',
+  username: 'sav_developer',
+  photo_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=sav-dev&backgroundColor=c4a052',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
 };
 
 export const useTelegramAuth = (): UseTelegramAuthResult => {
@@ -90,37 +100,22 @@ export const useTelegramAuth = (): UseTelegramAuthResult => {
   const [isLoading, setIsLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devModeEnabled, setDevModeEnabled] = useState<boolean>(getInitialDevMode);
 
   const isTelegramWebApp = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
-  
-  // Dev mode is only available in Lovable preview and when enabled
-  const isDevMode = isLovablePreview && devModeEnabled && !isTelegramWebApp;
-
-  const toggleDevMode = useCallback(() => {
-    setDevModeEnabled(prev => {
-      const newValue = !prev;
-      localStorage.setItem('sav-dev-mode', String(newValue));
-      // Reload to apply changes
-      window.location.reload();
-      return newValue;
-    });
-  }, []);
+  const isDevMode = isLovablePreview && getDevMode() && !isTelegramWebApp;
 
   useEffect(() => {
     const initTelegramAuth = async () => {
-      // If in dev mode (Lovable preview), create mock profile
+      // If in dev mode (Lovable preview with dev mode enabled), use mock profile
       if (isDevMode) {
-        console.log('Running in Lovable preview - using dev mode');
-        setProfile({
-          id: 'dev-mode-id',
-          telegram_id: 123456789,
-          first_name: 'Dev',
-          last_name: 'Mode',
-          username: 'dev_user',
-          photo_url: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+        console.log('🔧 Running in DEV MODE - using test profile');
+        setProfile(DEV_USER_PROFILE);
+        setTelegramUser({
+          id: DEV_USER_PROFILE.telegram_id,
+          first_name: DEV_USER_PROFILE.first_name || undefined,
+          last_name: DEV_USER_PROFILE.last_name || undefined,
+          username: DEV_USER_PROFILE.username || undefined,
+          photo_url: DEV_USER_PROFILE.photo_url || undefined,
         });
         setIsLoading(false);
         return;
@@ -188,9 +183,7 @@ export const useTelegramAuth = (): UseTelegramAuthResult => {
     profile,
     isLoading,
     isNewUser,
-    isTelegramWebApp: isTelegramWebApp || isDevMode, // Treat dev mode as if in Telegram
+    isTelegramWebApp: isTelegramWebApp || isDevMode,
     error,
-    isDevMode: devModeEnabled && isLovablePreview,
-    toggleDevMode,
   };
 };
