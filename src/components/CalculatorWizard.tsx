@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, RefreshCw } from 'lucide-react';
 import Rivets from './Rivets';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useToast } from '@/hooks/use-toast';
 import { useCities, syncCities } from '@/hooks/useCities';
 import { CitySearchSelect } from './CitySearchSelect';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 
 interface CalculatorWizardProps {
   onBack: () => void;
@@ -70,6 +71,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const [isSyncingCities, setIsSyncingCities] = useState(false);
   const { toast } = useToast();
   const { data: citiesData, isLoading: citiesLoading, refetch: refetchCities } = useCities();
+  const { profile: telegramProfile } = useTelegramAuth();
   
   // Use cities from DB with full data
   const citiesWithSalary = citiesData && citiesData.length > 0 
@@ -88,6 +90,18 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     maintenance: '',
     promoCode: ''
   });
+
+  // Auto-fill name from Telegram profile
+  useEffect(() => {
+    if (telegramProfile && !formData.fullName) {
+      const fullName = [telegramProfile.first_name, telegramProfile.last_name]
+        .filter(Boolean)
+        .join(' ');
+      if (fullName) {
+        setFormData(prev => ({ ...prev, fullName }));
+      }
+    }
+  }, [telegramProfile]);
 
   const updateField = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -170,9 +184,14 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const submitForm = async () => {
     setIsSubmitting(true);
     
+    // Use Telegram ID if available, otherwise fallback to timestamp
+    const chatId = telegramProfile?.telegram_id 
+      ? String(telegramProfile.telegram_id) 
+      : Date.now().toString();
+    
     const payload = {
       formUrl: FORM_URL,
-      chat_id: Date.now().toString(),
+      chat_id: chatId,
       'ФИО': formData.fullName,
       'Компания': formData.company,
       'Продукт': formData.product,
