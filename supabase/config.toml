@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-telegram-message]
 verify_jwt = false
+
+[functions.sync-telegram-profile]
+verify_jwt = false
