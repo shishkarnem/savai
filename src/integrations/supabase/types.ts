@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      cities: {
+        Row: {
+          avg_salary: number | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avg_salary?: number | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avg_salary?: number | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_messages: {
         Row: {
           client_id: string
