@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   User, MapPin, Calendar, Briefcase, 
-  DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send, RefreshCw
+  DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send, RefreshCw,
+  Download, X, ZoomIn
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import type { CardSection } from '@/hooks/useCRMSettings';
@@ -92,6 +93,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'chat'>('info');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -224,34 +226,121 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
     return parts.length > 0 ? parts.join(' ') : null;
   };
 
+  // Download photo handler
+  const handleDownloadPhoto = async () => {
+    if (!telegramProfile?.photo_url) return;
+    
+    try {
+      const response = await fetch(telegramProfile.photo_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${client.full_name || telegramProfile.username || 'profile'}_photo.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      // Fallback: open in new tab
+      window.open(telegramProfile.photo_url, '_blank');
+    }
+  };
+
+  const hasPhoto = !!telegramProfile?.photo_url;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-4 border-b border-border">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              {/* Telegram Profile Avatar */}
-              <div className="relative">
-                <Avatar className="h-14 w-14 border-2 border-primary/20">
-                  <AvatarImage 
-                    src={telegramProfile?.photo_url || undefined} 
-                    alt={client.full_name || 'Client'} 
-                  />
-                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                    {(client.full_name || 'U')[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                {/* Sync button on avatar */}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleManualSync}
-                  disabled={isSyncing || !client.telegram_id}
-                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-background border-border"
-                  title="Синхронизировать профиль Telegram"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                </Button>
+    <>
+      {/* Photo Preview Modal */}
+      <Dialog open={photoPreviewOpen} onOpenChange={setPhotoPreviewOpen}>
+        <DialogContent className="max-w-md p-0 bg-background/95 backdrop-blur-sm">
+          <div className="relative">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPhotoPreviewOpen(false)}
+              className="absolute top-2 right-2 z-10 bg-background/80 hover:bg-background"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            
+            {/* Photo */}
+            <div className="p-4 pt-12">
+              <div className="rounded-lg overflow-hidden border border-border">
+                <img 
+                  src={telegramProfile?.photo_url || ''} 
+                  alt={client.full_name || 'Profile photo'}
+                  className="w-full h-auto object-cover"
+                />
+              </div>
+              
+              {/* Info */}
+              <div className="mt-4 text-center">
+                <h3 className="font-semibold text-lg">
+                  {getProfileDisplayName() || client.full_name || 'Без имени'}
+                </h3>
+                {telegramProfile?.username && (
+                  <p className="text-sm text-muted-foreground">@{telegramProfile.username}</p>
+                )}
+              </div>
+              
+              {/* Download button */}
+              <Button
+                onClick={handleDownloadPhoto}
+                className="w-full mt-4 gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Скачать фото
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Client Card Dialog */}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-4 border-b border-border">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                {/* Telegram Profile Avatar */}
+                <div className="relative group">
+                  <Avatar 
+                    className={`h-14 w-14 border-2 border-primary/20 ${hasPhoto ? 'cursor-pointer' : ''}`}
+                    onClick={() => hasPhoto && setPhotoPreviewOpen(true)}
+                  >
+                    <AvatarImage 
+                      src={telegramProfile?.photo_url || undefined} 
+                      alt={client.full_name || 'Client'} 
+                    />
+                    <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                      {(client.full_name || 'U')[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  {/* Zoom indicator on hover */}
+                  {hasPhoto && (
+                    <div 
+                      className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                      onClick={() => setPhotoPreviewOpen(true)}
+                    >
+                      <ZoomIn className="h-5 w-5 text-white" />
+                    </div>
+                  )}
+                  
+                  {/* Sync button on avatar */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={(e) => { e.stopPropagation(); handleManualSync(); }}
+                    disabled={isSyncing || !client.telegram_id}
+                    className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-background border-border"
+                    title="Синхронизировать профиль Telegram"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  </Button>
               </div>
 
               <div>
@@ -516,8 +605,9 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
             />
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
