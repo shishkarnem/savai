@@ -20,13 +20,15 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
 import { CRMFilters, ColumnFilters } from '@/components/crm/CRMFilters';
-import { ClientCard } from '@/components/crm/ClientCard';
-import { KanbanView } from '@/components/crm/KanbanView';
+import { ClientCardConfigurable } from '@/components/crm/ClientCardConfigurable';
+import { KanbanViewDnD } from '@/components/crm/KanbanViewDnD';
+import { SettingsConstructor } from '@/components/crm/SettingsConstructor';
+import { useCRMSettings } from '@/hooks/useCRMSettings';
 
 type Client = Tables<'clients'>;
 
@@ -60,6 +62,19 @@ const getStatusColor = (status: string | null): string => {
 const AdminCRM: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // CRM settings hook
+  const {
+    tableColumns,
+    kanbanFields,
+    cardSections,
+    toggleTableColumn,
+    toggleKanbanField,
+    toggleCardSection,
+    resetTableColumns,
+    resetKanbanFields,
+    resetCardSections,
+  } = useCRMSettings();
   
   // View state
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
@@ -238,6 +253,64 @@ const AdminCRM: React.FC = () => {
     setAiMatchedIds(null);
   };
 
+  const handleClientStatusChange = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  // Get visible columns
+  const visibleColumns = tableColumns.filter(col => col.visible);
+
+  // Render cell content based on column key
+  const renderCellContent = (client: Client, columnKey: string) => {
+    switch (columnKey) {
+      case 'project_code':
+        return <span className="font-mono text-xs">{client.project_code || '—'}</span>;
+      case 'full_name':
+        return (
+          <div className="max-w-[200px]">
+            <div className="font-medium truncate">{client.full_name || '—'}</div>
+            {client.telegram_id && (
+              <div className="text-xs text-muted-foreground">ID: {client.telegram_id}</div>
+            )}
+          </div>
+        );
+      case 'telegram_client':
+        return <span className="text-sm">{client.telegram_client || '—'}</span>;
+      case 'project':
+        return <div className="max-w-[150px] truncate text-sm">{client.project || '—'}</div>;
+      case 'status':
+        return (
+          <Badge variant="outline" className={getStatusColor(client.status)}>
+            {client.status || 'Нет'}
+          </Badge>
+        );
+      case 'expert':
+        return <span className="text-sm">{client.expert_pseudonym || client.expert_name || '—'}</span>;
+      case 'tariff':
+        return <span className="text-sm">{client.tariff || '—'}</span>;
+      case 'city':
+        return <span className="text-sm">{client.city || '—'}</span>;
+      case 'product':
+        return <span className="text-sm">{client.product || '—'}</span>;
+      case 'department':
+        return <span className="text-sm">{client.department || '—'}</span>;
+      case 'employees_count':
+        return <span className="text-sm">{client.employees_count || '—'}</span>;
+      case 'sav_cost':
+        return <span className="text-sm">{client.sav_cost || '—'}</span>;
+      case 'service_price':
+        return <span className="text-sm">{client.service_price || '—'}</span>;
+      case 'calculator_date':
+        return <span className="text-sm">{client.calculator_date || '—'}</span>;
+      case 'start_date':
+        return <span className="text-sm">{client.start_date || '—'}</span>;
+      case 'comment':
+        return <div className="max-w-[200px] truncate text-sm">{client.comment || '—'}</div>;
+      default:
+        return '—';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -266,6 +339,15 @@ const AdminCRM: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/admin/crm/dashboard')}
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Аналитика</span>
+              </Button>
               <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'kanban')}>
                 <TabsList>
                   <TabsTrigger value="table" className="gap-1.5">
@@ -278,6 +360,22 @@ const AdminCRM: React.FC = () => {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+              {viewMode === 'table' && (
+                <SettingsConstructor
+                  mode="table"
+                  tableColumns={tableColumns}
+                  onToggleTableColumn={toggleTableColumn}
+                  onResetTableColumns={resetTableColumns}
+                />
+              )}
+              {viewMode === 'kanban' && (
+                <SettingsConstructor
+                  mode="kanban"
+                  kanbanFields={kanbanFields}
+                  onToggleKanbanField={toggleKanbanField}
+                  onResetKanbanFields={resetKanbanFields}
+                />
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -327,7 +425,12 @@ const AdminCRM: React.FC = () => {
             Загрузка данных...
           </div>
         ) : viewMode === 'kanban' ? (
-          <KanbanView clients={filteredClients} onClientClick={handleClientClick} />
+          <KanbanViewDnD 
+            clients={filteredClients} 
+            onClientClick={handleClientClick}
+            kanbanFields={kanbanFields}
+            onClientStatusChange={handleClientStatusChange}
+          />
         ) : (
           <>
             {/* Table */}
@@ -341,14 +444,11 @@ const AdminCRM: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30">
-                        <TableHead className="whitespace-nowrap">Код</TableHead>
-                        <TableHead className="whitespace-nowrap">Клиент</TableHead>
-                        <TableHead className="whitespace-nowrap">Telegram</TableHead>
-                        <TableHead className="whitespace-nowrap">Проект</TableHead>
-                        <TableHead className="whitespace-nowrap">Статус</TableHead>
-                        <TableHead className="whitespace-nowrap">Эксперт</TableHead>
-                        <TableHead className="whitespace-nowrap">Тариф</TableHead>
-                        <TableHead className="whitespace-nowrap">Город</TableHead>
+                        {visibleColumns.map((col) => (
+                          <TableHead key={col.key} className="whitespace-nowrap">
+                            {col.label}
+                          </TableHead>
+                        ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -358,46 +458,11 @@ const AdminCRM: React.FC = () => {
                           className="hover:bg-muted/20 cursor-pointer"
                           onClick={() => handleClientClick(client)}
                         >
-                          <TableCell className="font-mono text-xs">
-                            {client.project_code || '—'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[200px]">
-                              <div className="font-medium truncate">
-                                {client.full_name || '—'}
-                              </div>
-                              {client.telegram_id && (
-                                <div className="text-xs text-muted-foreground">
-                                  ID: {client.telegram_id}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {client.telegram_client || '—'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="max-w-[150px] truncate text-sm">
-                              {client.project || '—'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={getStatusColor(client.status)}
-                            >
-                              {client.status || 'Нет'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {client.expert_pseudonym || client.expert_name || '—'}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {client.tariff || '—'}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {client.city || '—'}
-                          </TableCell>
+                          {visibleColumns.map((col) => (
+                            <TableCell key={col.key}>
+                              {renderCellContent(client, col.key)}
+                            </TableCell>
+                          ))}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -455,10 +520,13 @@ const AdminCRM: React.FC = () => {
       </main>
 
       {/* Client Card Dialog */}
-      <ClientCard
+      <ClientCardConfigurable
         client={selectedClient}
         open={cardOpen}
         onOpenChange={setCardOpen}
+        cardSections={cardSections}
+        onToggleCardSection={toggleCardSection}
+        onResetCardSections={resetCardSections}
       />
     </div>
   );
