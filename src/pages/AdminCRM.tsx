@@ -489,33 +489,44 @@ const AdminCRM: React.FC = () => {
                   Клиенты не найдены
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        {visibleColumns.map((col) => (
-                          <TableHead key={col.key} className="whitespace-nowrap">
-                            {col.label}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedClients.map((client) => (
-                        <TableRow 
-                          key={client.id} 
-                          className="hover:bg-muted/20 cursor-pointer"
-                          onClick={() => handleClientClick(client)}
-                        >
+                <div className="relative">
+                  {/* Horizontal scroll container with visible scrollbar */}
+                  <div 
+                    className="overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50"
+                    style={{ 
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent'
+                    }}
+                  >
+                    <Table className="min-w-[1200px]">
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
                           {visibleColumns.map((col) => (
-                            <TableCell key={col.key}>
-                              {renderCellContent(client, col.key)}
-                            </TableCell>
+                            <TableHead key={col.key} className="whitespace-nowrap">
+                              {col.label}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedClients.map((client) => (
+                          <TableRow 
+                            key={client.id} 
+                            className="hover:bg-muted/20 cursor-pointer"
+                            onClick={() => handleClientClick(client)}
+                          >
+                            {visibleColumns.map((col) => (
+                              <TableCell key={col.key}>
+                                {renderCellContent(client, col.key)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {/* Scroll hint indicators */}
+                  <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent pointer-events-none opacity-50" />
                 </div>
               )}
             </div>
