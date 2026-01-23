@@ -58,6 +58,16 @@ const Index: React.FC = () => {
     }
   }, []);
   useEffect(() => {
+    // Check if model is already loaded (container has 'active' class)
+    const bgModelContainer = document.getElementById('bg-model-container');
+    const isModelAlreadyLoaded = bgModelContainer?.classList.contains('active');
+    
+    if (isModelAlreadyLoaded) {
+      // Model already loaded, skip directly to intro
+      setStep('intro');
+      return;
+    }
+    
     const timer = setTimeout(() => {
       startBooting(DEFAULT_GLB_URL);
     }, 100);
