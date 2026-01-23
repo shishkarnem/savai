@@ -13,6 +13,7 @@ import PlansStep from '../components/PlansStep';
 import PlanDetailsStep from '../components/PlanDetailsStep';
 import CalculatorStep from '../components/CalculatorStep';
 import ExpertStep from '../components/ExpertStep';
+import TelegramRequiredModal from '../components/TelegramRequiredModal';
 type Step = 'ignition' | 'booting' | 'intro' | 'classification' | 'plans' | 'details' | 'expert' | 'calculator';
 const DEFAULT_GLB_URL = "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb";
 const Index: React.FC = () => {
@@ -192,9 +193,26 @@ const Index: React.FC = () => {
       setIsLoading(false);
     }
   };
-  if (step === 'ignition') return <IgnitionScreen urlInput={urlInput} setUrlInput={setUrlInput} onFileUpload={handleFileUpload} onUrlLoad={() => startBooting(urlInput.trim())} />;
-  if (step === 'booting') return <BootLoader bootProgress={bootProgress} bootStatus={bootStatus} />;
-  return <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
+  // Show Telegram required modal for non-Telegram users (after loading)
+  const showTelegramRequiredModal = !isTelegramLoading && !isTelegramWebApp;
+
+  if (step === 'ignition') return (
+    <>
+      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
+      <IgnitionScreen urlInput={urlInput} setUrlInput={setUrlInput} onFileUpload={handleFileUpload} onUrlLoad={() => startBooting(urlInput.trim())} />
+    </>
+  );
+  
+  if (step === 'booting') return (
+    <>
+      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
+      <BootLoader bootProgress={bootProgress} bootStatus={bootStatus} />
+    </>
+  );
+  
+  return (
+    <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
+      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
       {isLoading && <ProcessingLoader />}
       <Header onLogoClick={() => setStep('intro')} />
       <main className="w-full max-w-4xl flex-grow">
@@ -208,6 +226,8 @@ const Index: React.FC = () => {
       <footer className="mt-8 py-6 text-center opacity-20 text-[8px] md:text-[10px] tracking-[0.3em] uppercase font-bold">
         © 1885-2026 SAV AI • Королевская Академия Робототехники
       </footer>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;
