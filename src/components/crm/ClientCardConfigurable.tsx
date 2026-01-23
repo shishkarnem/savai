@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   User, MapPin, Calendar, Briefcase, 
   DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send
@@ -17,8 +20,10 @@ import type { Tables } from '@/integrations/supabase/types';
 import type { CardSection } from '@/hooks/useCRMSettings';
 import { SettingsConstructor } from './SettingsConstructor';
 import { ClientChat } from './ClientChat';
+import { supabase } from '@/integrations/supabase/client';
 
 type Client = Tables<'clients'>;
+type TelegramProfile = Tables<'telegram_profiles'>;
 
 interface ClientCardConfigurableProps {
   client: Client | null;
@@ -86,29 +91,116 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'chat'>('info');
 
+  // Fetch telegram profile by telegram_id
+  const { data: telegramProfile } = useQuery({
+    queryKey: ['telegram-profile', client?.telegram_id],
+    queryFn: async () => {
+      if (!client?.telegram_id) return null;
+      const telegramIdNum = parseInt(client.telegram_id, 10);
+      if (isNaN(telegramIdNum)) return null;
+      
+      const { data, error } = await supabase
+        .from('telegram_profiles')
+        .select('*')
+        .eq('telegram_id', telegramIdNum)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching telegram profile:', error);
+        return null;
+      }
+      return data as TelegramProfile | null;
+    },
+    enabled: open && !!client?.telegram_id,
+  });
+
   if (!client) return null;
 
   const isSectionVisible = (key: string) => 
     cardSections.find(s => s.key === key)?.visible ?? true;
+
+  // Build telegram link
+  const getTelegramLink = () => {
+    if (telegramProfile?.username) {
+      return `https://t.me/${telegramProfile.username}`;
+    }
+    if (client.telegram_client) {
+      // Remove @ if present
+      const username = client.telegram_client.replace('@', '');
+      return `https://t.me/${username}`;
+    }
+    if (client.telegram_id) {
+      return `tg://user?id=${client.telegram_id}`;
+    }
+    return null;
+  };
+
+  const telegramLink = getTelegramLink();
+
+  // Get display name from telegram profile
+  const getProfileDisplayName = () => {
+    if (!telegramProfile) return null;
+    const parts = [telegramProfile.first_name, telegramProfile.last_name].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : null;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] p-0">
         <DialogHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <DialogTitle className="text-xl">
-                {client.full_name || 'Без имени'}
-              </DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
-                <Badge variant="outline" className={getStatusColor(client.status)}>
-                  {client.status || 'Нет статуса'}
-                </Badge>
-                {client.project_code && (
-                  <Badge variant="secondary" className="font-mono">
-                    {client.project_code}
-                  </Badge>
+            <div className="flex items-start gap-4">
+              {/* Telegram Profile Avatar */}
+              <Avatar className="h-14 w-14 border-2 border-primary/20">
+                <AvatarImage 
+                  src={telegramProfile?.photo_url || undefined} 
+                  alt={client.full_name || 'Client'} 
+                />
+                <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                  {(client.full_name || 'U')[0].toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+
+              <div>
+                <DialogTitle className="text-xl">
+                  {client.full_name || 'Без имени'}
+                </DialogTitle>
+                
+                {/* Telegram profile name if different */}
+                {getProfileDisplayName() && getProfileDisplayName() !== client.full_name && (
+                  <p className="text-sm text-muted-foreground">
+                    Telegram: {getProfileDisplayName()}
+                    {telegramProfile?.username && (
+                      <span className="text-primary ml-1">@{telegramProfile.username}</span>
+                    )}
+                  </p>
                 )}
+                
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Badge variant="outline" className={getStatusColor(client.status)}>
+                    {client.status || 'Нет статуса'}
+                  </Badge>
+                  {client.project_code && (
+                    <Badge variant="secondary" className="font-mono">
+                      {client.project_code}
+                    </Badge>
+                  )}
+                  
+                  {/* Telegram Link Button */}
+                  {telegramLink && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="gap-1.5 h-6 px-2 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                    >
+                      <a href={telegramLink} target="_blank" rel="noopener noreferrer">
+                        <MessageSquare className="h-3 w-3" />
+                        Открыть Telegram
+                      </a>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             <SettingsConstructor
