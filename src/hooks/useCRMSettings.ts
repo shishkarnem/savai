@@ -122,13 +122,22 @@ const STORAGE_KEYS = {
   cardSections: 'crm_card_sections',
 };
 
+// Helper to merge saved settings with defaults (adds new fields)
+function mergeWithDefaults<T extends { key: string }>(saved: T[], defaults: T[]): T[] {
+  const savedKeys = new Set(saved.map(item => item.key));
+  const newItems = defaults.filter(item => !savedKeys.has(item.key));
+  return [...saved, ...newItems];
+}
+
 export function useCRMSettings() {
   // Table columns
   const [tableColumns, setTableColumnsState] = useState<TableColumn[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.tableColumns);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Merge with defaults to include new columns
+        return mergeWithDefaults(parsed, DEFAULT_TABLE_COLUMNS);
       } catch {
         return DEFAULT_TABLE_COLUMNS;
       }
@@ -141,7 +150,9 @@ export function useCRMSettings() {
     const saved = localStorage.getItem(STORAGE_KEYS.kanbanFields);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Merge with defaults to include new fields
+        return mergeWithDefaults(parsed, DEFAULT_KANBAN_FIELDS);
       } catch {
         return DEFAULT_KANBAN_FIELDS;
       }
@@ -154,7 +165,9 @@ export function useCRMSettings() {
     const saved = localStorage.getItem(STORAGE_KEYS.cardSections);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Merge with defaults to include new sections
+        return mergeWithDefaults(parsed, DEFAULT_CARD_SECTIONS);
       } catch {
         return DEFAULT_CARD_SECTIONS;
       }
