@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import ExpertSelection from "./pages/ExpertSelection";
 import ExpertHistory from "./pages/ExpertHistory";
 import TelegramProfile from "./pages/TelegramProfile";
+import AdminCRM from "./pages/AdminCRM";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/profile" element={<TelegramProfile />} />
             <Route path="/experts" element={<ExpertSelection />} />
             <Route path="/experts/history" element={<ExpertHistory />} />
+            <Route path="/admin/crm" element={<AdminCRM />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
