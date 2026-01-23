@@ -409,8 +409,8 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
             </TabsList>
           </div>
 
-          <TabsContent value="info" className="m-0">
-            <ScrollArea className="max-h-[55vh]">
+          <TabsContent value="info" className="m-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-[55vh]">
               <div className="p-6 space-y-6">
                 {/* Контактные данные */}
                 {isSectionVisible('contacts') && (
