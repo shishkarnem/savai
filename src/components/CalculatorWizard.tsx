@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, Cog, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, RefreshCw } from 'lucide-react';
 import Rivets from './Rivets';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useCities, syncCities } from '@/hooks/useCities';
+import { CitySearchSelect } from './CitySearchSelect';
 
 interface CalculatorWizardProps {
   onBack: () => void;
@@ -70,10 +71,10 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const { toast } = useToast();
   const { data: citiesData, isLoading: citiesLoading, refetch: refetchCities } = useCities();
   
-  // Use cities from DB or fallback
-  const cities = citiesData && citiesData.length > 0 
-    ? citiesData.map(c => c.name)
-    : FALLBACK_CITIES;
+  // Use cities from DB with full data
+  const citiesWithSalary = citiesData && citiesData.length > 0 
+    ? citiesData
+    : FALLBACK_CITIES.map((name, i) => ({ id: `fallback-${i}`, name, avg_salary: null }));
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -90,6 +91,16 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
 
   const updateField = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  // Handle city selection with auto-fill salary
+  const handleCitySelect = (cityName: string, avgSalary: number | null) => {
+    setFormData(prev => ({
+      ...prev,
+      city: cityName,
+      // Auto-fill salary if available and current salary is empty
+      averageSalary: prev.averageSalary || (avgSalary ? String(avgSalary) : prev.averageSalary),
+    }));
   };
   
   // Handle city sync
@@ -271,16 +282,13 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
                   )}
                 </Button>
               </div>
-              <Select value={formData.city} onValueChange={(v) => updateField('city', v)}>
-                <SelectTrigger className="bg-background/50 border-primary/30">
-                  <SelectValue placeholder={citiesLoading ? "Загрузка..." : "Выберите город"} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {cities.map(city => (
-                    <SelectItem key={city} value={city}>{city}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CitySearchSelect
+                cities={citiesWithSalary}
+                value={formData.city}
+                onChange={handleCitySelect}
+                isLoading={citiesLoading}
+                placeholder="Начните вводить название города..."
+              />
             </div>
           </div>
         );
@@ -468,7 +476,6 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
             
             <div className="mt-6 p-4 rounded-lg border border-primary/30 bg-gradient-to-br from-background/50 to-primary/5">
               <h4 className="font-medium mb-3 flex items-center gap-2">
-                <Cog className="w-4 h-4 text-primary" />
                 📋 Итоговые данные:
               </h4>
               <div className="text-sm space-y-1 text-muted-foreground">
