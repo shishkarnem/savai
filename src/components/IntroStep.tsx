@@ -30,25 +30,35 @@ export const IntroStep: React.FC<IntroStepProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <button 
-            onClick={onClassify}
-            className="steampunk-button w-full py-3.5 text-lg md:text-2xl"
-          >
-            <i className="fa-solid fa-gauge-high"></i> Проанализировать
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={onClassify}
+              className="steampunk-button w-full py-3.5 text-lg md:text-2xl"
+            >
+              <i className="fa-solid fa-robot"></i> ИИ-Продавец
+            </button>
+            <p className="text-xs md:text-sm text-center opacity-50 italic">
+              Готовые тарифы для отдела продаж • Быстрый подбор пакета
+            </p>
+          </div>
 
-          <div className="flex items-center gap-4 py-1">
+          <div className="flex items-center gap-4 py-2">
             <div className="h-px bg-foreground opacity-10 flex-1"></div>
-            <span className="text-primary text-[10px] md:text-sm italic opacity-40 uppercase tracking-widest">или воспользуйтесь</span>
+            <span className="text-primary text-[10px] md:text-sm italic opacity-40 uppercase tracking-widest">или</span>
             <div className="h-px bg-foreground opacity-10 flex-1"></div>
           </div>
 
-          <button 
-            onClick={onCalculator}
-            className="w-full bg-transparent border border-foreground/10 text-primary py-2.5 text-base md:text-lg hover:bg-foreground/5 transition-all flex items-center justify-center gap-2 rounded-xl backdrop-blur-sm"
-          >
-            <i className="fa-solid fa-calculator"></i> Калькулятором затрат
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={onCalculator}
+              className="w-full bg-transparent border border-foreground/10 text-primary py-3 text-base md:text-lg hover:bg-foreground/5 transition-all flex items-center justify-center gap-2 rounded-xl backdrop-blur-sm"
+            >
+              <i className="fa-solid fa-users-cog"></i> ИИ для других отделов
+            </button>
+            <p className="text-xs md:text-sm text-center opacity-50 italic">
+              Индивидуальный расчёт по ТЗ • Любые сотрудники и отделы
+            </p>
+          </div>
         </div>
       </div>
     </div>
