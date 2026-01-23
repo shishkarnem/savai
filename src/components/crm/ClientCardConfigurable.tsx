@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,14 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   User, MapPin, Calendar, Briefcase, 
-  DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send
+  DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send, RefreshCw
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import type { CardSection } from '@/hooks/useCRMSettings';
 import { SettingsConstructor } from './SettingsConstructor';
 import { ClientChat } from './ClientChat';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 type Client = Tables<'clients'>;
 type TelegramProfile = Tables<'telegram_profiles'>;
@@ -90,9 +91,12 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
   onResetCardSections,
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'chat'>('info');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch telegram profile by telegram_id
-  const { data: telegramProfile } = useQuery({
+  const { data: telegramProfile, refetch: refetchProfile } = useQuery({
     queryKey: ['telegram-profile', client?.telegram_id],
     queryFn: async () => {
       if (!client?.telegram_id) return null;
@@ -113,6 +117,82 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
     },
     enabled: open && !!client?.telegram_id,
   });
+
+  // Auto-sync telegram profile when opening card if no profile exists
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (!open || !client?.telegram_id || telegramProfile !== null || isSyncing) return;
+      
+      // Only sync if we've checked and found no profile (telegramProfile is null, not undefined)
+      const telegramIdNum = parseInt(client.telegram_id, 10);
+      if (isNaN(telegramIdNum)) return;
+
+      setIsSyncing(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+          body: { telegram_id: client.telegram_id },
+        });
+
+        if (!error && data?.success) {
+          // Refetch profile after sync
+          await refetchProfile();
+          console.log('Auto-synced telegram profile:', data);
+        }
+      } catch (err) {
+        console.log('Auto-sync skipped:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    // Small delay to let initial query complete
+    const timer = setTimeout(syncProfile, 500);
+    return () => clearTimeout(timer);
+  }, [open, client?.telegram_id, telegramProfile, isSyncing, refetchProfile]);
+
+  // Manual sync handler
+  const handleManualSync = async () => {
+    if (!client?.telegram_id || isSyncing) return;
+    
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+        body: { telegram_id: client.telegram_id },
+      });
+
+      if (error) {
+        toast({
+          title: 'Ошибка синхронизации',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data?.success) {
+        await refetchProfile();
+        toast({
+          title: 'Профиль обновлён',
+          description: `Данные из Telegram ${data.action === 'created' ? 'загружены' : 'обновлены'}`,
+        });
+      } else {
+        toast({
+          title: 'Не удалось получить профиль',
+          description: data?.error || 'Пользователь не взаимодействовал с ботом',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Sync error:', err);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось синхронизировать профиль',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (!client) return null;
 
@@ -151,15 +231,28 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
               {/* Telegram Profile Avatar */}
-              <Avatar className="h-14 w-14 border-2 border-primary/20">
-                <AvatarImage 
-                  src={telegramProfile?.photo_url || undefined} 
-                  alt={client.full_name || 'Client'} 
-                />
-                <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                  {(client.full_name || 'U')[0].toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-14 w-14 border-2 border-primary/20">
+                  <AvatarImage 
+                    src={telegramProfile?.photo_url || undefined} 
+                    alt={client.full_name || 'Client'} 
+                  />
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                    {(client.full_name || 'U')[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {/* Sync button on avatar */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleManualSync}
+                  disabled={isSyncing || !client.telegram_id}
+                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-background border-border"
+                  title="Синхронизировать профиль Telegram"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
 
               <div>
                 <DialogTitle className="text-xl">

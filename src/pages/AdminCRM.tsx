@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3 } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -98,6 +98,7 @@ const AdminCRM: React.FC = () => {
   // Client card
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
 
   const { data: clients, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['admin-clients'],
@@ -184,6 +185,41 @@ const AdminCRM: React.FC = () => {
       setIsAISearching(false);
     }
   }, [search, clients, toast]);
+
+  // Bulk sync telegram profiles handler
+  const handleBulkSync = useCallback(async () => {
+    setIsBulkSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+        body: { bulk_sync: true, limit: 50 },
+      });
+
+      if (error) {
+        toast({
+          title: 'Ошибка синхронизации',
+          description: error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (data?.success) {
+        toast({
+          title: 'Синхронизация завершена',
+          description: `Загружено: ${data.synced}, ошибок: ${data.failed}${data.remaining > 0 ? `. Осталось: ${data.remaining}` : ''}`,
+        });
+      }
+    } catch (err) {
+      console.error('Bulk sync error:', err);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось выполнить массовую синхронизацию',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkSyncing(false);
+    }
+  }, [toast]);
 
   // Filtered clients
   const filteredClients = useMemo(() => {
@@ -339,6 +375,19 @@ const AdminCRM: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkSync}
+                disabled={isBulkSyncing}
+                className="gap-2"
+                title="Загрузить профили Telegram для клиентов"
+              >
+                <Download className={`h-4 w-4 ${isBulkSyncing ? 'animate-pulse' : ''}`} />
+                <span className="hidden sm:inline">
+                  {isBulkSyncing ? 'Синхронизация...' : 'Синхр. Telegram'}
+                </span>
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
