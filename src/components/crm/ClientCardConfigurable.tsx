@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,13 +8,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  User, Phone, MapPin, Calendar, Briefcase, 
-  DollarSign, MessageSquare, Bot, ExternalLink 
+  User, MapPin, Calendar, Briefcase, 
+  DollarSign, MessageSquare, Bot, ExternalLink, FileText, Send
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 import type { CardSection } from '@/hooks/useCRMSettings';
 import { SettingsConstructor } from './SettingsConstructor';
+import { ClientChat } from './ClientChat';
 
 type Client = Tables<'clients'>;
 
@@ -82,6 +84,8 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
   onToggleCardSection,
   onResetCardSections,
 }) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'chat'>('info');
+
   if (!client) return null;
 
   const isSectionVisible = (key: string) => 
@@ -116,191 +120,217 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
-          <div className="p-6 space-y-6">
-            {/* Контактные данные */}
-            {isSectionVisible('contacts') && (
-              <>
-                <Section title="Контактные данные">
-                  <InfoRow 
-                    label="Telegram ID" 
-                    value={client.telegram_id} 
-                    icon={<User className="h-4 w-4" />} 
-                  />
-                  <InfoRow 
-                    label="Telegram" 
-                    value={client.telegram_client} 
-                    icon={<MessageSquare className="h-4 w-4" />} 
-                  />
-                  <InfoRow 
-                    label="Город" 
-                    value={client.city} 
-                    icon={<MapPin className="h-4 w-4" />} 
-                  />
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Проект */}
-            {isSectionVisible('project') && (
-              <>
-                <Section title="Проект">
-                  <InfoRow label="Название проекта" value={client.project} icon={<Briefcase className="h-4 w-4" />} />
-                  <InfoRow label="Продукт" value={client.product} />
-                  <InfoRow label="Подразделение" value={client.department} />
-                  <InfoRow label="Сотрудников" value={client.employees_count} />
-                  <InfoRow label="Функционал" value={client.functionality} />
-                  <InfoRow label="Обслуживание" value={client.service} />
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Эксперт и тариф */}
-            {isSectionVisible('expert') && (
-              <>
-                <Section title="Эксперт и тариф">
-                  <InfoRow label="Эксперт" value={client.expert_name} />
-                  <InfoRow label="Псевдоним эксперта" value={client.expert_pseudonym} />
-                  <InfoRow label="Выбранный эксперт" value={client.selected_expert} />
-                  <InfoRow label="Тариф" value={client.tariff} />
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Финансы */}
-            {isSectionVisible('finance') && (
-              <>
-                <Section title="Финансы">
-                  <InfoRow 
-                    label="Стоимость SAV" 
-                    value={client.sav_cost} 
-                    icon={<DollarSign className="h-4 w-4" />} 
-                  />
-                  <InfoRow label="Цена обслуживания" value={client.service_price} />
-                  <InfoRow label="Цена софта" value={client.software_price} />
-                  <InfoRow label="Цена ИИ токенов" value={client.ai_tokens_price} />
-                  <InfoRow label="Средняя ЗП" value={client.avg_salary} />
-                  <InfoRow label="ЗП региона" value={client.region_salary} />
-                  <InfoRow label="Реальная ЗП" value={client.real_salary} />
-                  <InfoRow label="Стоимость ИИ сотрудника" value={client.ai_employee_cost} />
-                  <InfoRow label="Окупаемость" value={client.payback} />
-                  <InfoRow label="Сумма возврата" value={client.refund_amount} />
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Даты */}
-            {isSectionVisible('dates') && (
-              <>
-                <Section title="Важные даты">
-                  <div className="grid grid-cols-2 gap-2">
-                    <InfoRow 
-                      label="Дата калькулятора" 
-                      value={client.calculator_date} 
-                      icon={<Calendar className="h-4 w-4" />} 
-                    />
-                    <InfoRow label="Дата старта" value={client.start_date} />
-                    <InfoRow label="Дата эксперта" value={client.expert_date} />
-                    <InfoRow label="Дата тарифа" value={client.tariff_date} />
-                    <InfoRow label="Дата старта работ" value={client.work_start_date} />
-                    <InfoRow label="Дата оплаты" value={client.payment_date} />
-                    <InfoRow label="Дата старта обслуживания" value={client.service_start_date} />
-                    <InfoRow label="Дата конца работ" value={client.work_end_date} />
-                    <InfoRow label="Дата акта" value={client.act_date} />
-                    <InfoRow label="Дата отказа" value={client.rejection_date} />
-                    <InfoRow label="Дата блокировки" value={client.block_date} />
-                  </div>
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* ProTalk бот */}
-            {isSectionVisible('protalk') && (
-              <>
-                <Section title="Telegram бот (ProTalk)">
-                  <InfoRow 
-                    label="ProTalk ID" 
-                    value={client.protalk_id} 
-                    icon={<Bot className="h-4 w-4" />} 
-                  />
-                  <InfoRow label="ProTalk имя" value={client.protalk_name} />
-                  <InfoRow label="Статус отправки ProTalk" value={client.protalk_send_status} />
-                  <InfoRow label="Канал" value={client.channel} />
-                  <InfoRow label="Последнее сообщение" value={client.last_message} />
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Ссылки */}
-            {isSectionVisible('documents') && (client.contract_ooo_url || client.contract_ip_url || client.project_plan_url) && (
-              <>
-                <Section title="Документы">
-                  {client.contract_ooo_url && (
-                    <a 
-                      href={client.contract_ooo_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Договор ООО
-                    </a>
-                  )}
-                  {client.contract_ip_url && (
-                    <a 
-                      href={client.contract_ip_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Договор ИП
-                    </a>
-                  )}
-                  {client.project_plan_url && (
-                    <a 
-                      href={client.project_plan_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      План проекта
-                    </a>
-                  )}
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* Комментарий */}
-            {isSectionVisible('comment') && client.comment && (
-              <>
-                <Section title="Комментарий">
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {client.comment}
-                  </p>
-                </Section>
-                <Separator />
-              </>
-            )}
-
-            {/* КП текст */}
-            {isSectionVisible('kp') && client.kp_text && (
-              <Section title="Текст КП">
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
-                  {client.kp_text}
-                </p>
-              </Section>
-            )}
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'info' | 'chat')} className="flex-1">
+          <div className="px-6 pt-2">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Информация
+              </TabsTrigger>
+              <TabsTrigger value="chat" className="gap-2">
+                <Send className="h-4 w-4" />
+                Чат
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </ScrollArea>
+
+          <TabsContent value="info" className="m-0">
+            <ScrollArea className="max-h-[55vh]">
+              <div className="p-6 space-y-6">
+                {/* Контактные данные */}
+                {isSectionVisible('contacts') && (
+                  <>
+                    <Section title="Контактные данные">
+                      <InfoRow 
+                        label="Telegram ID" 
+                        value={client.telegram_id} 
+                        icon={<User className="h-4 w-4" />} 
+                      />
+                      <InfoRow 
+                        label="Telegram" 
+                        value={client.telegram_client} 
+                        icon={<MessageSquare className="h-4 w-4" />} 
+                      />
+                      <InfoRow 
+                        label="Город" 
+                        value={client.city} 
+                        icon={<MapPin className="h-4 w-4" />} 
+                      />
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Проект */}
+                {isSectionVisible('project') && (
+                  <>
+                    <Section title="Проект">
+                      <InfoRow label="Название проекта" value={client.project} icon={<Briefcase className="h-4 w-4" />} />
+                      <InfoRow label="Продукт" value={client.product} />
+                      <InfoRow label="Подразделение" value={client.department} />
+                      <InfoRow label="Сотрудников" value={client.employees_count} />
+                      <InfoRow label="Функционал" value={client.functionality} />
+                      <InfoRow label="Обслуживание" value={client.service} />
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Эксперт и тариф */}
+                {isSectionVisible('expert') && (
+                  <>
+                    <Section title="Эксперт и тариф">
+                      <InfoRow label="Эксперт" value={client.expert_name} />
+                      <InfoRow label="Псевдоним эксперта" value={client.expert_pseudonym} />
+                      <InfoRow label="Выбранный эксперт" value={client.selected_expert} />
+                      <InfoRow label="Тариф" value={client.tariff} />
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Финансы */}
+                {isSectionVisible('finance') && (
+                  <>
+                    <Section title="Финансы">
+                      <InfoRow 
+                        label="Стоимость SAV" 
+                        value={client.sav_cost} 
+                        icon={<DollarSign className="h-4 w-4" />} 
+                      />
+                      <InfoRow label="Цена обслуживания" value={client.service_price} />
+                      <InfoRow label="Цена софта" value={client.software_price} />
+                      <InfoRow label="Цена ИИ токенов" value={client.ai_tokens_price} />
+                      <InfoRow label="Средняя ЗП" value={client.avg_salary} />
+                      <InfoRow label="ЗП региона" value={client.region_salary} />
+                      <InfoRow label="Реальная ЗП" value={client.real_salary} />
+                      <InfoRow label="Стоимость ИИ сотрудника" value={client.ai_employee_cost} />
+                      <InfoRow label="Окупаемость" value={client.payback} />
+                      <InfoRow label="Сумма возврата" value={client.refund_amount} />
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Даты */}
+                {isSectionVisible('dates') && (
+                  <>
+                    <Section title="Важные даты">
+                      <div className="grid grid-cols-2 gap-2">
+                        <InfoRow 
+                          label="Дата калькулятора" 
+                          value={client.calculator_date} 
+                          icon={<Calendar className="h-4 w-4" />} 
+                        />
+                        <InfoRow label="Дата старта" value={client.start_date} />
+                        <InfoRow label="Дата эксперта" value={client.expert_date} />
+                        <InfoRow label="Дата тарифа" value={client.tariff_date} />
+                        <InfoRow label="Дата старта работ" value={client.work_start_date} />
+                        <InfoRow label="Дата оплаты" value={client.payment_date} />
+                        <InfoRow label="Дата старта обслуживания" value={client.service_start_date} />
+                        <InfoRow label="Дата конца работ" value={client.work_end_date} />
+                        <InfoRow label="Дата акта" value={client.act_date} />
+                        <InfoRow label="Дата отказа" value={client.rejection_date} />
+                        <InfoRow label="Дата блокировки" value={client.block_date} />
+                      </div>
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* ProTalk бот */}
+                {isSectionVisible('protalk') && (
+                  <>
+                    <Section title="Telegram бот (ProTalk)">
+                      <InfoRow 
+                        label="ProTalk ID" 
+                        value={client.protalk_id} 
+                        icon={<Bot className="h-4 w-4" />} 
+                      />
+                      <InfoRow label="ProTalk имя" value={client.protalk_name} />
+                      <InfoRow label="Статус отправки ProTalk" value={client.protalk_send_status} />
+                      <InfoRow label="Канал" value={client.channel} />
+                      <InfoRow label="Последнее сообщение" value={client.last_message} />
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Ссылки */}
+                {isSectionVisible('documents') && (client.contract_ooo_url || client.contract_ip_url || client.project_plan_url) && (
+                  <>
+                    <Section title="Документы">
+                      {client.contract_ooo_url && (
+                        <a 
+                          href={client.contract_ooo_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Договор ООО
+                        </a>
+                      )}
+                      {client.contract_ip_url && (
+                        <a 
+                          href={client.contract_ip_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Договор ИП
+                        </a>
+                      )}
+                      {client.project_plan_url && (
+                        <a 
+                          href={client.project_plan_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline py-1"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          План проекта
+                        </a>
+                      )}
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Комментарий */}
+                {isSectionVisible('comment') && client.comment && (
+                  <>
+                    <Section title="Комментарий">
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {client.comment}
+                      </p>
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
+                {/* КП текст */}
+                {isSectionVisible('kp') && client.kp_text && (
+                  <Section title="Текст КП">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      {client.kp_text}
+                    </p>
+                  </Section>
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="chat" className="m-0 px-6 pb-6">
+            <ClientChat
+              clientId={client.id}
+              telegramId={client.telegram_id}
+              clientName={client.full_name}
+            />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_messages: {
+        Row: {
+          client_id: string
+          created_at: string
+          direction: string
+          error_message: string | null
+          id: string
+          message: string
+          sent_at: string
+          status: string
+          telegram_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          direction: string
+          error_message?: string | null
+          id?: string
+          message: string
+          sent_at?: string
+          status?: string
+          telegram_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          direction?: string
+          error_message?: string | null
+          id?: string
+          message?: string
+          sent_at?: string
+          status?: string
+          telegram_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           act_date: string | null
