@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.sync-clients]
 verify_jwt = false
+
+[functions.ai-search-clients]
+verify_jwt = false
