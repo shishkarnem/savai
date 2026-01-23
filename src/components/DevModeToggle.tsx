@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 // Check if running in Lovable preview/editor
 const isLovablePreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('lovable.app') ||
+  window.location.hostname.includes('lovableproject.com') ||
   window.location.hostname.includes('localhost') ||
   window.location.hostname === '127.0.0.1'
 );
