@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BusinessInfo, PlanData, PlanLevel } from '../types';
 import { classifyBusiness, generatePlanPresentation } from '../services/geminiService';
 import { fetchPlansFromSheet, fetchSpecificPlan } from '../services/sheetService';
+import { useTelegramAuth } from '../hooks/useTelegramAuth';
 import Header from '../components/Header';
 import IgnitionScreen from '../components/IgnitionScreen';
 import BootLoader from '../components/BootLoader';
@@ -29,6 +30,21 @@ const Index: React.FC = () => {
     presentation: string;
   } | null>(null);
   const rotationRef = useRef(0);
+
+  // Telegram WebApp auth
+  const { telegramUser, profile: telegramProfile, isLoading: isTelegramLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
+  
+  // Log Telegram user info for debugging
+  useEffect(() => {
+    if (telegramProfile) {
+      console.log('Telegram user registered:', {
+        telegram_id: telegramProfile.telegram_id,
+        name: `${telegramProfile.first_name || ''} ${telegramProfile.last_name || ''}`.trim(),
+        username: telegramProfile.username,
+        isNewUser
+      });
+    }
+  }, [telegramProfile, isNewUser]);
   const lastXRef = useRef(0);
   const startBooting = useCallback((source: string) => {
     setStep('booting');
