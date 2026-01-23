@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, Cog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, Cog, RefreshCw } from 'lucide-react';
 import Rivets from './Rivets';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useCities, syncCities } from '@/hooks/useCities';
 
 interface CalculatorWizardProps {
   onBack: () => void;
@@ -26,7 +27,8 @@ interface FormData {
   promoCode: string;
 }
 
-const CITIES = [
+// Fallback cities in case DB is empty
+const FALLBACK_CITIES = [
   'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
   'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
   'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград', 'Краснодар',
@@ -64,7 +66,14 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isSyncingCities, setIsSyncingCities] = useState(false);
   const { toast } = useToast();
+  const { data: citiesData, isLoading: citiesLoading, refetch: refetchCities } = useCities();
+  
+  // Use cities from DB or fallback
+  const cities = citiesData && citiesData.length > 0 
+    ? citiesData.map(c => c.name)
+    : FALLBACK_CITIES;
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -81,6 +90,28 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
 
   const updateField = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  // Handle city sync
+  const handleSyncCities = async () => {
+    setIsSyncingCities(true);
+    try {
+      const result = await syncCities();
+      await refetchCities();
+      toast({
+        title: "Города синхронизированы",
+        description: `Загружено ${result.synced} городов`,
+      });
+    } catch (error) {
+      console.error('Error syncing cities:', error);
+      toast({
+        title: "Ошибка синхронизации",
+        description: "Не удалось загрузить города",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingCities(false);
+    }
   };
 
   const TOTAL_STEPS = 7;
@@ -220,16 +251,32 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                <label className="text-sm font-medium">Город *</label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-medium">Город *</label>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSyncCities}
+                  disabled={isSyncingCities}
+                  className="h-7 px-2 text-xs"
+                >
+                  {isSyncingCities ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                </Button>
               </div>
               <Select value={formData.city} onValueChange={(v) => updateField('city', v)}>
                 <SelectTrigger className="bg-background/50 border-primary/30">
-                  <SelectValue placeholder="Выберите город" />
+                  <SelectValue placeholder={citiesLoading ? "Загрузка..." : "Выберите город"} />
                 </SelectTrigger>
-                <SelectContent>
-                  {CITIES.map(city => (
+                <SelectContent className="max-h-[300px]">
+                  {cities.map(city => (
                     <SelectItem key={city} value={city}>{city}</SelectItem>
                   ))}
                 </SelectContent>
