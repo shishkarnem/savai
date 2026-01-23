@@ -67,6 +67,13 @@ declare global {
   }
 }
 
+// Check if running in Lovable preview/editor
+const isLovablePreview = typeof window !== 'undefined' && (
+  window.location.hostname.includes('lovable.app') ||
+  window.location.hostname.includes('localhost') ||
+  window.location.hostname === '127.0.0.1'
+);
+
 export const useTelegramAuth = (): UseTelegramAuthResult => {
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
   const [profile, setProfile] = useState<TelegramProfile | null>(null);
@@ -75,9 +82,29 @@ export const useTelegramAuth = (): UseTelegramAuthResult => {
   const [error, setError] = useState<string | null>(null);
 
   const isTelegramWebApp = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+  
+  // In Lovable preview, bypass Telegram requirement
+  const isDevMode = isLovablePreview && !isTelegramWebApp;
 
   useEffect(() => {
     const initTelegramAuth = async () => {
+      // If in dev mode (Lovable preview), create mock profile
+      if (isDevMode) {
+        console.log('Running in Lovable preview - using dev mode');
+        setProfile({
+          id: 'dev-mode-id',
+          telegram_id: 123456789,
+          first_name: 'Dev',
+          last_name: 'Mode',
+          username: 'dev_user',
+          photo_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Check if running inside Telegram WebApp
       if (!window.Telegram?.WebApp) {
         console.log('Not running in Telegram WebApp');
@@ -133,14 +160,14 @@ export const useTelegramAuth = (): UseTelegramAuthResult => {
     };
 
     initTelegramAuth();
-  }, []);
+  }, [isDevMode]);
 
   return {
     telegramUser,
     profile,
     isLoading,
     isNewUser,
-    isTelegramWebApp,
+    isTelegramWebApp: isTelegramWebApp || isDevMode, // Treat dev mode as if in Telegram
     error,
   };
 };
