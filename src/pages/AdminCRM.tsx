@@ -312,6 +312,8 @@ const AdminCRM: React.FC = () => {
         );
       case 'telegram_client':
         return <span className="text-sm">{client.telegram_client || '—'}</span>;
+      case 'telegram_id':
+        return <span className="text-sm font-mono">{client.telegram_id || '—'}</span>;
       case 'project':
         return <div className="max-w-[150px] truncate text-sm">{client.project || '—'}</div>;
       case 'status':
@@ -320,8 +322,14 @@ const AdminCRM: React.FC = () => {
             {client.status || 'Нет'}
           </Badge>
         );
+      case 'send_status':
+        return <span className="text-sm">{client.send_status || '—'}</span>;
+      case 'channel':
+        return <span className="text-sm">{client.channel || '—'}</span>;
       case 'expert':
         return <span className="text-sm">{client.expert_pseudonym || client.expert_name || '—'}</span>;
+      case 'selected_expert':
+        return <span className="text-sm">{client.selected_expert || '—'}</span>;
       case 'tariff':
         return <span className="text-sm">{client.tariff || '—'}</span>;
       case 'city':
@@ -330,18 +338,80 @@ const AdminCRM: React.FC = () => {
         return <span className="text-sm">{client.product || '—'}</span>;
       case 'department':
         return <span className="text-sm">{client.department || '—'}</span>;
+      case 'department_text':
+        return <div className="max-w-[150px] truncate text-sm">{client.department_text || '—'}</div>;
       case 'employees_count':
         return <span className="text-sm">{client.employees_count || '—'}</span>;
+      case 'functionality':
+        return <div className="max-w-[150px] truncate text-sm">{client.functionality || '—'}</div>;
+      case 'service':
+        return <span className="text-sm">{client.service || '—'}</span>;
+      case 'service_type':
+        return <span className="text-sm">{client.service_type || '—'}</span>;
       case 'sav_cost':
         return <span className="text-sm">{client.sav_cost || '—'}</span>;
       case 'service_price':
         return <span className="text-sm">{client.service_price || '—'}</span>;
-      case 'calculator_date':
-        return <span className="text-sm">{client.calculator_date || '—'}</span>;
+      case 'software_price':
+        return <span className="text-sm">{client.software_price || '—'}</span>;
+      case 'ai_tokens_price':
+        return <span className="text-sm">{client.ai_tokens_price || '—'}</span>;
+      case 'ai_employee_cost':
+        return <span className="text-sm">{client.ai_employee_cost || '—'}</span>;
+      case 'avg_salary':
+        return <span className="text-sm">{client.avg_salary || '—'}</span>;
+      case 'real_salary':
+        return <span className="text-sm">{client.real_salary || '—'}</span>;
+      case 'region_salary':
+        return <span className="text-sm">{client.region_salary || '—'}</span>;
+      case 'payback':
+        return <span className="text-sm">{client.payback || '—'}</span>;
+      case 'refund_amount':
+        return <span className="text-sm">{client.refund_amount || '—'}</span>;
       case 'start_date':
         return <span className="text-sm">{client.start_date || '—'}</span>;
+      case 'calculator_date':
+        return <span className="text-sm">{client.calculator_date || '—'}</span>;
+      case 'tariff_date':
+        return <span className="text-sm">{client.tariff_date || '—'}</span>;
+      case 'expert_date':
+        return <span className="text-sm">{client.expert_date || '—'}</span>;
+      case 'payment_date':
+        return <span className="text-sm">{client.payment_date || '—'}</span>;
+      case 'service_start_date':
+        return <span className="text-sm">{client.service_start_date || '—'}</span>;
+      case 'work_start_date':
+        return <span className="text-sm">{client.work_start_date || '—'}</span>;
+      case 'work_end_date':
+        return <span className="text-sm">{client.work_end_date || '—'}</span>;
+      case 'act_date':
+        return <span className="text-sm">{client.act_date || '—'}</span>;
+      case 'block_date':
+        return <span className="text-sm">{client.block_date || '—'}</span>;
+      case 'rejection_date':
+        return <span className="text-sm">{client.rejection_date || '—'}</span>;
+      case 'protalk_name':
+        return <span className="text-sm">{client.protalk_name || '—'}</span>;
+      case 'protalk_id':
+        return <span className="text-sm font-mono">{client.protalk_id || '—'}</span>;
+      case 'protalk_send_status':
+        return <span className="text-sm">{client.protalk_send_status || '—'}</span>;
+      case 'script_id':
+        return <span className="text-sm font-mono">{client.script_id || '—'}</span>;
+      case 'bot_token':
+        return <span className="text-sm font-mono truncate max-w-[100px]">{client.bot_token ? '••••••' : '—'}</span>;
       case 'comment':
         return <div className="max-w-[200px] truncate text-sm">{client.comment || '—'}</div>;
+      case 'last_message':
+        return <div className="max-w-[200px] truncate text-sm">{client.last_message || '—'}</div>;
+      case 'reminder_text':
+        return <div className="max-w-[150px] truncate text-sm">{client.reminder_text || '—'}</div>;
+      case 'reminder_time':
+        return <span className="text-sm">{client.reminder_time || '—'}</span>;
+      case 'software_text':
+        return <div className="max-w-[150px] truncate text-sm">{client.software_text || '—'}</div>;
+      case 'kp_text':
+        return <div className="max-w-[150px] truncate text-sm">{client.kp_text ? 'Есть КП' : '—'}</div>;
       default:
         return '—';
     }

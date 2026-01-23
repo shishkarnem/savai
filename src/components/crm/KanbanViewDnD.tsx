@@ -1,15 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { User, MapPin, Briefcase, DollarSign, Calendar, UserCheck } from 'lucide-react';
-import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User, MapPin, Briefcase, DollarSign, Calendar, UserCheck, MessageSquare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import type { Tables } from '@/integrations/supabase/types';
 import type { KanbanField } from '@/hooks/useCRMSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 type Client = Tables<'clients'>;
+type TelegramProfile = Tables<'telegram_profiles'>;
 
 interface KanbanViewDnDProps {
   clients: Client[];
@@ -38,9 +41,11 @@ const getFieldIcon = (key: string) => {
     case 'telegram_client': return <User className="h-3 w-3" />;
     case 'project': return <Briefcase className="h-3 w-3" />;
     case 'city': return <MapPin className="h-3 w-3" />;
-    case 'sav_cost': return <DollarSign className="h-3 w-3" />;
+    case 'sav_cost': 
+    case 'service_price': return <DollarSign className="h-3 w-3" />;
     case 'calculator_date': return <Calendar className="h-3 w-3" />;
     case 'expert': return <UserCheck className="h-3 w-3" />;
+    case 'last_message': return <MessageSquare className="h-3 w-3" />;
     default: return null;
   }
 };
@@ -50,8 +55,7 @@ interface DraggableCardProps {
   kanbanFields: KanbanField[];
   onClientClick: (client: Client) => void;
   isDragging: boolean;
-  onDragStart: () => void;
-  onDragEnd: () => void;
+  telegramProfile?: TelegramProfile | null;
 }
 
 const DraggableCard: React.FC<DraggableCardProps> = ({
@@ -59,8 +63,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   kanbanFields,
   onClientClick,
   isDragging,
-  onDragStart,
-  onDragEnd,
+  telegramProfile,
 }) => {
   const getClientFieldValue = (key: string): string | null => {
     switch (key) {
@@ -73,12 +76,21 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       case 'expert': return client.expert_pseudonym || client.expert_name;
       case 'product': return client.product;
       case 'sav_cost': return client.sav_cost;
+      case 'service_price': return client.service_price;
       case 'calculator_date': return client.calculator_date;
+      case 'last_message': return client.last_message ? (client.last_message.length > 50 ? client.last_message.slice(0, 50) + '...' : client.last_message) : null;
       default: return null;
     }
   };
 
   const visibleFields = kanbanFields.filter(f => f.visible);
+  const showAvatar = visibleFields.some(f => f.key === 'avatar');
+  
+  // Get initials for avatar fallback
+  const getInitials = () => {
+    const name = client.full_name || client.telegram_client || '';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+  };
 
   return (
     <motion.div
@@ -93,10 +105,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       exit={{ opacity: 0, scale: 0.8 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      drag
-      dragElastic={0.1}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
       className="cursor-grab active:cursor-grabbing"
     >
       <Card
@@ -107,25 +115,41 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         }}
       >
         <div className="space-y-2">
-          {/* Name and code */}
-          {(visibleFields.some(f => f.key === 'full_name') || visibleFields.some(f => f.key === 'project_code')) && (
-            <div className="flex items-start justify-between gap-2">
-              {visibleFields.some(f => f.key === 'full_name') && (
-                <div className="font-medium text-sm truncate flex-1">
-                  {client.full_name || 'Без имени'}
+          {/* Avatar + Name row */}
+          <div className="flex items-start gap-2">
+            {showAvatar && (
+              <Avatar className="h-8 w-8 shrink-0 border border-border">
+                <AvatarImage 
+                  src={telegramProfile?.photo_url || undefined} 
+                  alt={client.full_name || 'Avatar'} 
+                />
+                <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className="flex-1 min-w-0">
+              {/* Name and code */}
+              {(visibleFields.some(f => f.key === 'full_name') || visibleFields.some(f => f.key === 'project_code')) && (
+                <div className="flex items-start justify-between gap-2">
+                  {visibleFields.some(f => f.key === 'full_name') && (
+                    <div className="font-medium text-sm truncate flex-1">
+                      {client.full_name || 'Без имени'}
+                    </div>
+                  )}
+                  {visibleFields.some(f => f.key === 'project_code') && client.project_code && (
+                    <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                      {client.project_code}
+                    </Badge>
+                  )}
                 </div>
               )}
-              {visibleFields.some(f => f.key === 'project_code') && client.project_code && (
-                <Badge variant="outline" className="font-mono text-[10px] shrink-0">
-                  {client.project_code}
-                </Badge>
-              )}
             </div>
-          )}
+          </div>
           
           {/* Dynamic fields */}
           {visibleFields
-            .filter(f => !['full_name', 'project_code', 'tariff'].includes(f.key))
+            .filter(f => !['full_name', 'project_code', 'tariff', 'avatar'].includes(f.key))
             .map(field => {
               const value = getClientFieldValue(field.key);
               if (!value) return null;
@@ -158,6 +182,7 @@ interface KanbanColumnDnDProps {
   onClientClick: (client: Client) => void;
   onDrop: (clientId: string, newStatus: string) => void;
   draggedClientId: string | null;
+  telegramProfiles: Map<string, TelegramProfile>;
 }
 
 const KanbanColumnDnD: React.FC<KanbanColumnDnDProps> = ({
@@ -168,6 +193,7 @@ const KanbanColumnDnD: React.FC<KanbanColumnDnDProps> = ({
   onClientClick,
   onDrop,
   draggedClientId,
+  telegramProfiles,
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -225,8 +251,7 @@ const KanbanColumnDnD: React.FC<KanbanColumnDnDProps> = ({
                   kanbanFields={kanbanFields}
                   onClientClick={onClientClick}
                   isDragging={draggedClientId === client.id}
-                  onDragStart={() => {}}
-                  onDragEnd={() => {}}
+                  telegramProfile={client.telegram_id ? telegramProfiles.get(client.telegram_id) : null}
                 />
               </div>
             ))}
@@ -254,6 +279,40 @@ export const KanbanViewDnD: React.FC<KanbanViewDnDProps> = ({
   const { toast } = useToast();
   const [draggedClientId, setDraggedClientId] = useState<string | null>(null);
   const [localClients, setLocalClients] = useState(clients);
+
+  // Fetch telegram profiles for all clients with telegram_id
+  const telegramIds = useMemo(() => {
+    return clients
+      .map(c => c.telegram_id)
+      .filter((id): id is string => !!id)
+      .map(id => parseInt(id, 10))
+      .filter(id => !isNaN(id));
+  }, [clients]);
+
+  const { data: telegramProfiles } = useQuery({
+    queryKey: ['telegram-profiles-kanban', telegramIds],
+    queryFn: async () => {
+      if (telegramIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('telegram_profiles')
+        .select('*')
+        .in('telegram_id', telegramIds);
+      
+      if (error) throw error;
+      return data as TelegramProfile[];
+    },
+    enabled: telegramIds.length > 0,
+  });
+
+  // Create a map for quick lookup
+  const profilesMap = useMemo(() => {
+    const map = new Map<string, TelegramProfile>();
+    telegramProfiles?.forEach(profile => {
+      map.set(String(profile.telegram_id), profile);
+    });
+    return map;
+  }, [telegramProfiles]);
 
   // Update local clients when props change
   React.useEffect(() => {
@@ -304,7 +363,10 @@ export const KanbanViewDnD: React.FC<KanbanViewDnDProps> = ({
   }, [localClients, toast, onClientStatusChange]);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '500px' }}>
+    <div 
+      className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin" 
+      style={{ minHeight: '500px' }}
+    >
       {KANBAN_COLUMNS.map((col) => (
         <KanbanColumnDnD
           key={col.status}
@@ -315,6 +377,7 @@ export const KanbanViewDnD: React.FC<KanbanViewDnDProps> = ({
           onClientClick={onClientClick}
           onDrop={handleDrop}
           draggedClientId={draggedClientId}
+          telegramProfiles={profilesMap}
         />
       ))}
     </div>
