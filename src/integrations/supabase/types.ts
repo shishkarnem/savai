@@ -14,6 +14,195 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          act_date: string | null
+          ai_employee_cost: string | null
+          ai_tokens_price: string | null
+          avg_salary: string | null
+          block_date: string | null
+          bot_token: string | null
+          calculator_date: string | null
+          channel: string | null
+          city: string | null
+          comment: string | null
+          contract_ip_url: string | null
+          contract_ooo_url: string | null
+          created_at: string
+          department: string | null
+          department_text: string | null
+          employees_count: string | null
+          expert_date: string | null
+          expert_name: string | null
+          expert_pseudonym: string | null
+          full_name: string | null
+          functionality: string | null
+          id: string
+          kp_text: string | null
+          last_100_messages: string | null
+          last_message: string | null
+          payback: string | null
+          payment_date: string | null
+          product: string | null
+          project: string | null
+          project_code: string | null
+          project_plan_url: string | null
+          protalk_id: string | null
+          protalk_name: string | null
+          protalk_send_status: string | null
+          real_salary: string | null
+          refund_amount: string | null
+          region_salary: string | null
+          rejection_date: string | null
+          reminder_text: string | null
+          reminder_time: string | null
+          sav_cost: string | null
+          script_id: string | null
+          selected_expert: string | null
+          send_status: string | null
+          service: string | null
+          service_price: string | null
+          service_start_date: string | null
+          service_type: string | null
+          sheet_row_id: string
+          software_price: string | null
+          software_text: string | null
+          start_date: string | null
+          status: string | null
+          tariff: string | null
+          tariff_date: string | null
+          telegram_client: string | null
+          telegram_id: string | null
+          updated_at: string
+          work_end_date: string | null
+          work_start_date: string | null
+        }
+        Insert: {
+          act_date?: string | null
+          ai_employee_cost?: string | null
+          ai_tokens_price?: string | null
+          avg_salary?: string | null
+          block_date?: string | null
+          bot_token?: string | null
+          calculator_date?: string | null
+          channel?: string | null
+          city?: string | null
+          comment?: string | null
+          contract_ip_url?: string | null
+          contract_ooo_url?: string | null
+          created_at?: string
+          department?: string | null
+          department_text?: string | null
+          employees_count?: string | null
+          expert_date?: string | null
+          expert_name?: string | null
+          expert_pseudonym?: string | null
+          full_name?: string | null
+          functionality?: string | null
+          id?: string
+          kp_text?: string | null
+          last_100_messages?: string | null
+          last_message?: string | null
+          payback?: string | null
+          payment_date?: string | null
+          product?: string | null
+          project?: string | null
+          project_code?: string | null
+          project_plan_url?: string | null
+          protalk_id?: string | null
+          protalk_name?: string | null
+          protalk_send_status?: string | null
+          real_salary?: string | null
+          refund_amount?: string | null
+          region_salary?: string | null
+          rejection_date?: string | null
+          reminder_text?: string | null
+          reminder_time?: string | null
+          sav_cost?: string | null
+          script_id?: string | null
+          selected_expert?: string | null
+          send_status?: string | null
+          service?: string | null
+          service_price?: string | null
+          service_start_date?: string | null
+          service_type?: string | null
+          sheet_row_id: string
+          software_price?: string | null
+          software_text?: string | null
+          start_date?: string | null
+          status?: string | null
+          tariff?: string | null
+          tariff_date?: string | null
+          telegram_client?: string | null
+          telegram_id?: string | null
+          updated_at?: string
+          work_end_date?: string | null
+          work_start_date?: string | null
+        }
+        Update: {
+          act_date?: string | null
+          ai_employee_cost?: string | null
+          ai_tokens_price?: string | null
+          avg_salary?: string | null
+          block_date?: string | null
+          bot_token?: string | null
+          calculator_date?: string | null
+          channel?: string | null
+          city?: string | null
+          comment?: string | null
+          contract_ip_url?: string | null
+          contract_ooo_url?: string | null
+          created_at?: string
+          department?: string | null
+          department_text?: string | null
+          employees_count?: string | null
+          expert_date?: string | null
+          expert_name?: string | null
+          expert_pseudonym?: string | null
+          full_name?: string | null
+          functionality?: string | null
+          id?: string
+          kp_text?: string | null
+          last_100_messages?: string | null
+          last_message?: string | null
+          payback?: string | null
+          payment_date?: string | null
+          product?: string | null
+          project?: string | null
+          project_code?: string | null
+          project_plan_url?: string | null
+          protalk_id?: string | null
+          protalk_name?: string | null
+          protalk_send_status?: string | null
+          real_salary?: string | null
+          refund_amount?: string | null
+          region_salary?: string | null
+          rejection_date?: string | null
+          reminder_text?: string | null
+          reminder_time?: string | null
+          sav_cost?: string | null
+          script_id?: string | null
+          selected_expert?: string | null
+          send_status?: string | null
+          service?: string | null
+          service_price?: string | null
+          service_start_date?: string | null
+          service_type?: string | null
+          sheet_row_id?: string
+          software_price?: string | null
+          software_text?: string | null
+          start_date?: string | null
+          status?: string | null
+          tariff?: string | null
+          tariff_date?: string | null
+          telegram_client?: string | null
+          telegram_id?: string | null
+          updated_at?: string
+          work_end_date?: string | null
+          work_start_date?: string | null
+        }
+        Relationships: []
+      }
       experts: {
         Row: {
           cases: string | null
@@ -100,7 +289,25 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      client_status:
+        | "Заблокировано"
+        | "Инфо"
+        | "Расчет"
+        | "Договор"
+        | "Предоплата"
+        | "Тариф"
+        | "Подбор Эксперта"
+        | "Отказ"
+        | "Обслуживание"
+        | "Не на связи"
+        | "Дубль"
+        | "Эксперт"
+        | "Выполнено"
+        | "В работе"
+        | "Бот создан"
+        | "Без напоминаний"
+        | "Партнер"
+      send_status: "Отправлено" | "Отправить" | "Ожидает"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -227,6 +434,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      client_status: [
+        "Заблокировано",
+        "Инфо",
+        "Расчет",
+        "Договор",
+        "Предоплата",
+        "Тариф",
+        "Подбор Эксперта",
+        "Отказ",
+        "Обслуживание",
+        "Не на связи",
+        "Дубль",
+        "Эксперт",
+        "Выполнено",
+        "В работе",
+        "Бот создан",
+        "Без напоминаний",
+        "Партнер",
+      ],
+      send_status: ["Отправлено", "Отправить", "Ожидает"],
+    },
   },
 } as const
