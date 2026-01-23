@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import ExpertSelection from "./pages/ExpertSelection";
 import ExpertHistory from "./pages/ExpertHistory";
+import TelegramProfile from "./pages/TelegramProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,6 +19,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/profile" element={<TelegramProfile />} />
           <Route path="/experts" element={<ExpertSelection />} />
           <Route path="/experts/history" element={<ExpertHistory />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
