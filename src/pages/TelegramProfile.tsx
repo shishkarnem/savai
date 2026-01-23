@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTelegramAuth } from '@/hooks/useTelegramAuth';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import Rivets from '@/components/Rivets';

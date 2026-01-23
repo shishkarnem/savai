@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BusinessInfo, PlanData, PlanLevel } from '../types';
 import { classifyBusiness, generatePlanPresentation } from '../services/geminiService';
 import { fetchPlansFromSheet, fetchSpecificPlan } from '../services/sheetService';
-import { useTelegramAuth } from '../hooks/useTelegramAuth';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import Header from '../components/Header';
 import IgnitionScreen from '../components/IgnitionScreen';
 import BootLoader from '../components/BootLoader';
