@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { BusinessInfo, PlanData, PlanLevel } from '../types';
 import { classifyBusiness, generatePlanPresentation } from '../services/geminiService';
 import { fetchPlansFromSheet, fetchSpecificPlan } from '../services/sheetService';
@@ -15,15 +16,30 @@ import CalculatorStep from '../components/CalculatorStep';
 import ExpertStep from '../components/ExpertStep';
 import TelegramRequiredModal from '../components/TelegramRequiredModal';
 import DevModeToggle from '../components/DevModeToggle';
+import { useModelCache } from '@/hooks/useModelCache';
+
 type Step = 'ignition' | 'booting' | 'intro' | 'classification' | 'plans' | 'details' | 'expert' | 'calculator';
+
 const DEFAULT_GLB_URL = "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb";
+
+// Page transition variants
+const pageVariants = {
+  initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, y: -10, filter: 'blur(4px)' },
+};
+
+const pageTransition = {
+  type: 'tween',
+  ease: [0.25, 0.46, 0.45, 0.94],
+  duration: 0.35,
+};
+
 const Index: React.FC = () => {
   const [step, setStep] = useState<Step>('ignition');
   const [inputValue, setInputValue] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [bootProgress, setBootProgress] = useState(0);
-  const [bootStatus, setBootStatus] = useState('Инициализация котлов...');
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [plans, setPlans] = useState<PlanData[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<PlanLevel | null>(null);
@@ -32,9 +48,19 @@ const Index: React.FC = () => {
     presentation: string;
   } | null>(null);
   const rotationRef = useRef(0);
+  const lastXRef = useRef(0);
+
+  // Model cache hook
+  const {
+    isModelCached,
+    isModelLoaded,
+    bootProgress,
+    bootStatus,
+    startBooting,
+  } = useModelCache(DEFAULT_GLB_URL);
 
   // Telegram WebApp auth
-  const { telegramUser, profile: telegramProfile, isLoading: isTelegramLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
+  const { profile: telegramProfile, isLoading: isTelegramLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
   
   // Log Telegram user info for debugging
   useEffect(() => {
@@ -47,16 +73,8 @@ const Index: React.FC = () => {
       });
     }
   }, [telegramProfile, isNewUser]);
-  const lastXRef = useRef(0);
-  const startBooting = useCallback((source: string) => {
-    setStep('booting');
-    setBootProgress(0);
-    setBootStatus('Связь с сервером чертежей...');
-    const modelViewer = document.querySelector('#bg-model') as any;
-    if (modelViewer) {
-      modelViewer.src = source;
-    }
-  }, []);
+
+  // Initial loading logic with cache support
   useEffect(() => {
     // Check if model is already loaded (container has 'active' class)
     const bgModelContainer = document.getElementById('bg-model-container');
@@ -67,47 +85,30 @@ const Index: React.FC = () => {
       setStep('intro');
       return;
     }
-    
-    const timer = setTimeout(() => {
+
+    // If cached, start loading faster
+    if (isModelCached) {
+      setStep('booting');
       startBooting(DEFAULT_GLB_URL);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [startBooting]);
+    } else {
+      // Normal flow - wait a bit then start
+      const timer = setTimeout(() => {
+        setStep('booting');
+        startBooting(DEFAULT_GLB_URL);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isModelCached, startBooting]);
+
+  // Handle model loaded state
   useEffect(() => {
-    const modelViewer = document.querySelector('#bg-model') as any;
-    if (!modelViewer) return;
-    const onProgress = (event: any) => {
-      const progress = Math.round(event.detail.totalProgress * 100);
-      if (step === 'booting') {
-        setBootProgress(progress);
-        if (progress > 30) setBootStatus('Смазка шестерней...');
-        if (progress > 60) setBootStatus('Подача пара...');
-        if (progress > 90) setBootStatus('Запуск поршней...');
-      }
-    };
-    const onLoad = () => {
-      if (step === 'booting') {
-        setBootProgress(100);
-        setBootStatus('Механизм запущен!');
-        document.getElementById('bg-model-container')?.classList.add('active');
-        setTimeout(() => setStep('intro'), 1200);
-      }
-    };
-    const onError = () => {
-      if (step === 'booting') {
-        setBootStatus("Ошибка! Механизм заклинило.");
-        setTimeout(() => setStep('ignition'), 2000);
-      }
-    };
-    modelViewer.addEventListener('progress', onProgress);
-    modelViewer.addEventListener('load', onLoad);
-    modelViewer.addEventListener('error', onError);
-    return () => {
-      modelViewer.removeEventListener('progress', onProgress);
-      modelViewer.removeEventListener('load', onLoad);
-      modelViewer.removeEventListener('error', onError);
-    };
-  }, [step]);
+    if (isModelLoaded && step === 'booting') {
+      const timer = setTimeout(() => setStep('intro'), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isModelLoaded, step]);
+
+  // Mouse/touch rotation handler
   useEffect(() => {
     const handleStart = (e: MouseEvent | TouchEvent) => {
       lastXRef.current = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
@@ -126,12 +127,8 @@ const Index: React.FC = () => {
     };
     window.addEventListener('mousedown', handleStart);
     window.addEventListener('mousemove', handleMove);
-    window.addEventListener('touchstart', handleStart, {
-      passive: false
-    });
-    window.addEventListener('touchmove', handleMove, {
-      passive: false
-    });
+    window.addEventListener('touchstart', handleStart, { passive: false });
+    window.addEventListener('touchmove', handleMove, { passive: false });
     return () => {
       window.removeEventListener('mousedown', handleStart);
       window.removeEventListener('mousemove', handleMove);
@@ -139,13 +136,18 @@ const Index: React.FC = () => {
       window.removeEventListener('touchmove', handleMove);
     };
   }, [step]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = event => startBooting(event.target?.result as string);
+    reader.onload = event => {
+      setStep('booting');
+      startBooting(event.target?.result as string);
+    };
     reader.readAsDataURL(file);
   };
+
   const handleClassify = async () => {
     if (!inputValue.trim()) return;
     setIsLoading(true);
@@ -160,6 +162,7 @@ const Index: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const handleShowPrices = async () => {
     if (!businessInfo) return;
     setIsLoading(true);
@@ -177,6 +180,7 @@ const Index: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const handleSelectPlan = async (level: PlanLevel, paymentType: 'monthly' | 'onetime') => {
     if (!businessInfo) return;
     setIsLoading(true);
@@ -188,15 +192,11 @@ const Index: React.FC = () => {
         category: businessInfo.category,
         package: level
       });
-      // Adjust price for onetime payment
       if (data && paymentType === 'onetime' && data.priceMonth) {
         data.priceMonth = data.priceMonth * 6;
       }
       const presentation = await generatePlanPresentation(businessInfo, level);
-      setPlanDetails({
-        data,
-        presentation
-      });
+      setPlanDetails({ data, presentation });
       setStep('details');
     } catch (err) {
       console.error(err);
@@ -204,14 +204,76 @@ const Index: React.FC = () => {
       setIsLoading(false);
     }
   };
-  // Show Telegram required modal for non-Telegram users (after loading)
+
   const showTelegramRequiredModal = !isTelegramLoading && !isTelegramWebApp;
+
+  // Render step content with animation
+  const renderStepContent = () => {
+    switch (step) {
+      case 'intro':
+        return (
+          <IntroStep
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            onClassify={handleClassify}
+            onCalculator={() => setStep('calculator')}
+          />
+        );
+      case 'classification':
+        return businessInfo && (
+          <ClassificationStep
+            businessInfo={businessInfo}
+            onShowPrices={handleShowPrices}
+            onBack={() => setStep('intro')}
+          />
+        );
+      case 'plans':
+        return businessInfo && (
+          <PlansStep
+            plans={plans}
+            onSelectPlan={handleSelectPlan}
+            onExpert={() => setStep('expert')}
+            onCalculator={() => setStep('calculator')}
+          />
+        );
+      case 'details':
+        return planDetails && businessInfo && selectedPlan && (
+          <PlanDetailsStep
+            selectedPlan={selectedPlan}
+            planDetails={planDetails}
+            businessInfo={businessInfo}
+            onBack={() => setStep('plans')}
+            onExpert={() => setStep('expert')}
+            onCalculator={() => setStep('calculator')}
+          />
+        );
+      case 'calculator':
+        return (
+          <CalculatorStep
+            hasBusinessInfo={!!businessInfo}
+            onBack={() => setStep(businessInfo ? 'plans' : 'intro')}
+          />
+        );
+      case 'expert':
+        return <ExpertStep onRestart={() => window.location.reload()} />;
+      default:
+        return null;
+    }
+  };
 
   if (step === 'ignition') return (
     <>
       <DevModeToggle />
       <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
-      <IgnitionScreen urlInput={urlInput} setUrlInput={setUrlInput} onFileUpload={handleFileUpload} onUrlLoad={() => startBooting(urlInput.trim())} />
+      <IgnitionScreen
+        urlInput={urlInput}
+        setUrlInput={setUrlInput}
+        onFileUpload={handleFileUpload}
+        onUrlLoad={() => {
+          setStep('booting');
+          startBooting(urlInput.trim());
+        }}
+      />
     </>
   );
   
@@ -230,12 +292,19 @@ const Index: React.FC = () => {
       {isLoading && <ProcessingLoader />}
       <Header onLogoClick={() => setStep('intro')} />
       <main className="w-full max-w-4xl flex-grow">
-        {step === 'intro' && <IntroStep inputValue={inputValue} setInputValue={setInputValue} onClassify={handleClassify} onCalculator={() => setStep('calculator')} />}
-        {step === 'classification' && businessInfo && <ClassificationStep businessInfo={businessInfo} onShowPrices={handleShowPrices} onBack={() => setStep('intro')} />}
-        {step === 'plans' && businessInfo && <PlansStep plans={plans} onSelectPlan={handleSelectPlan} onExpert={() => setStep('expert')} onCalculator={() => setStep('calculator')} />}
-        {step === 'details' && planDetails && businessInfo && selectedPlan && <PlanDetailsStep selectedPlan={selectedPlan} planDetails={planDetails} businessInfo={businessInfo} onBack={() => setStep('plans')} onExpert={() => setStep('expert')} onCalculator={() => setStep('calculator')} />}
-        {step === 'calculator' && <CalculatorStep hasBusinessInfo={!!businessInfo} onBack={() => setStep(businessInfo ? 'plans' : 'intro')} />}
-        {step === 'expert' && <ExpertStep onRestart={() => window.location.reload()} />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+            className="w-full"
+          >
+            {renderStepContent()}
+          </motion.div>
+        </AnimatePresence>
       </main>
       <footer className="mt-8 py-6 text-center opacity-20 text-[8px] md:text-[10px] tracking-[0.3em] uppercase font-bold">
         © 1885-2026 SAV AI • Королевская Академия Робототехники
