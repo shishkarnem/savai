@@ -20,6 +20,26 @@ interface TelegramProfile {
   updated_at: string;
 }
 
+// Extend Window interface for Telegram WebApp
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData: string;
+        initDataUnsafe: {
+          user?: TelegramUser;
+          query_id?: string;
+          auth_date?: number;
+          hash?: string;
+        };
+        ready: () => void;
+        expand: () => void;
+        close: () => void;
+      };
+    };
+  }
+}
+
 interface TelegramAuthContextType {
   telegramUser: TelegramUser | null;
   profile: TelegramProfile | null;
@@ -32,8 +52,10 @@ interface TelegramAuthContextType {
 const TelegramAuthContext = createContext<TelegramAuthContextType | undefined>(undefined);
 
 // Check if running in Lovable preview/editor
+// Preview domains can be lovable.app OR lovableproject.com
 const isLovablePreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('lovable.app') ||
+  window.location.hostname.includes('lovableproject.com') ||
   window.location.hostname.includes('localhost') ||
   window.location.hostname === '127.0.0.1'
 );
