@@ -14,6 +14,7 @@ import PlanDetailsStep from '../components/PlanDetailsStep';
 import CalculatorStep from '../components/CalculatorStep';
 import ExpertStep from '../components/ExpertStep';
 import TelegramRequiredModal from '../components/TelegramRequiredModal';
+import DevModeToggle from '../components/DevModeToggle';
 type Step = 'ignition' | 'booting' | 'intro' | 'classification' | 'plans' | 'details' | 'expert' | 'calculator';
 const DEFAULT_GLB_URL = "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb";
 const Index: React.FC = () => {
@@ -198,6 +199,7 @@ const Index: React.FC = () => {
 
   if (step === 'ignition') return (
     <>
+      <DevModeToggle />
       <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
       <IgnitionScreen urlInput={urlInput} setUrlInput={setUrlInput} onFileUpload={handleFileUpload} onUrlLoad={() => startBooting(urlInput.trim())} />
     </>
@@ -205,6 +207,7 @@ const Index: React.FC = () => {
   
   if (step === 'booting') return (
     <>
+      <DevModeToggle />
       <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
       <BootLoader bootProgress={bootProgress} bootStatus={bootStatus} />
     </>
@@ -212,6 +215,7 @@ const Index: React.FC = () => {
   
   return (
     <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
+      <DevModeToggle />
       <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
       {isLoading && <ProcessingLoader />}
       <Header onLogoClick={() => setStep('intro')} />

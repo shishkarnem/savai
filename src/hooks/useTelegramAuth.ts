@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TelegramUser {
@@ -27,6 +27,8 @@ interface UseTelegramAuthResult {
   isNewUser: boolean;
   isTelegramWebApp: boolean;
   error: string | null;
+  isDevMode: boolean;
+  toggleDevMode: () => void;
 }
 
 // Extend Window interface for Telegram WebApp
@@ -74,17 +76,36 @@ const isLovablePreview = typeof window !== 'undefined' && (
   window.location.hostname === '127.0.0.1'
 );
 
+// Get initial dev mode state from localStorage (default to true in Lovable preview)
+const getInitialDevMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem('sav-dev-mode');
+  if (stored !== null) return stored === 'true';
+  return isLovablePreview; // Default to true if in Lovable
+};
+
 export const useTelegramAuth = (): UseTelegramAuthResult => {
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
   const [profile, setProfile] = useState<TelegramProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [devModeEnabled, setDevModeEnabled] = useState<boolean>(getInitialDevMode);
 
   const isTelegramWebApp = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
   
-  // In Lovable preview, bypass Telegram requirement
-  const isDevMode = isLovablePreview && !isTelegramWebApp;
+  // Dev mode is only available in Lovable preview and when enabled
+  const isDevMode = isLovablePreview && devModeEnabled && !isTelegramWebApp;
+
+  const toggleDevMode = useCallback(() => {
+    setDevModeEnabled(prev => {
+      const newValue = !prev;
+      localStorage.setItem('sav-dev-mode', String(newValue));
+      // Reload to apply changes
+      window.location.reload();
+      return newValue;
+    });
+  }, []);
 
   useEffect(() => {
     const initTelegramAuth = async () => {
@@ -169,5 +190,7 @@ export const useTelegramAuth = (): UseTelegramAuthResult => {
     isNewUser,
     isTelegramWebApp: isTelegramWebApp || isDevMode, // Treat dev mode as if in Telegram
     error,
+    isDevMode: devModeEnabled && isLovablePreview,
+    toggleDevMode,
   };
 };
