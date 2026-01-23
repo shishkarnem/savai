@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTelegramAuth } from '@/hooks/useTelegramAuth';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 
 interface HeaderProps {
   onLogoClick: () => void;
