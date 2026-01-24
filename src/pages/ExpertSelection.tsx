@@ -146,6 +146,56 @@ const ExpertSelection: React.FC = () => {
     setTimeout(() => setExplosionIcons([]), 1000);
   }, []);
 
+  // Send notification when expert is selected (swipe right)
+  const sendExpertNotification = useCallback(async (expert: Expert) => {
+    // Get AI Seller data from sessionStorage
+    const aiSellerData: AISellerData = {
+      businessType: sessionStorage.getItem('sav-business-type') || undefined,
+      classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
+      selectedPlan: sessionStorage.getItem('sav-selected-plan') || state?.selectedPlan || undefined,
+      presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
+    };
+    
+    // Get calculator data if exists
+    const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
+    const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
+    
+    try {
+      const response = await supabase.functions.invoke('notify-expert-selection', {
+        body: {
+          expert: {
+            id: expert.id,
+            greeting: expert.greeting,
+            pseudonym: expert.pseudonym,
+            spheres: expert.spheres,
+          },
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
+          },
+          aiSellerInfo: fromAISeller ? aiSellerData : undefined,
+          calculatorInfo: calculatorData.company ? calculatorData : undefined,
+          source: fromAISeller ? 'ai-seller' : 'calculator',
+        },
+      });
+      
+      if (response.error) {
+        console.error('Error sending notification:', response.error);
+      } else {
+        const expertName = `${expert.greeting || ''}${expert.pseudonym || ''}`;
+        toast({
+          title: 'Эксперт выбран!',
+          description: `${expertName} получит уведомление о вашем запросе`,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  }, [telegramProfile, fromAISeller, state?.selectedPlan, toast]);
+
   const handleSwipe = useCallback((direction: SwipeDirection) => {
     if (currentIndex >= experts.length) return;
     
@@ -168,6 +218,8 @@ const ExpertSelection: React.FC = () => {
       if (direction === 'right') {
         setSelectedExperts(prev => [...prev, currentExpert]);
         setCurrentIndex(prev => prev + 1);
+        // Send notification immediately when expert is selected
+        sendExpertNotification(currentExpert);
       } else if (direction === 'down') {
         // Move to end of queue - don't increment index since array shifts
         setExperts(prev => [...prev.slice(0, currentIndex), ...prev.slice(currentIndex + 1), currentExpert]);
@@ -178,7 +230,7 @@ const ExpertSelection: React.FC = () => {
       
       setSwipeAnimation(null);
     }, 300);
-  }, [currentIndex, experts, triggerExplosion]);
+  }, [currentIndex, experts, triggerExplosion, sendExpertNotification, soundEnabled, triggerFeedback]);
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     const threshold = 100;
