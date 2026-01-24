@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -29,6 +29,8 @@ import { ClientCardConfigurable } from '@/components/crm/ClientCardConfigurable'
 import { KanbanViewDnD } from '@/components/crm/KanbanViewDnD';
 import { SettingsConstructor } from '@/components/crm/SettingsConstructor';
 import { useCRMSettings } from '@/hooks/useCRMSettings';
+import { useCRMAccess } from '@/hooks/useCRMAccess';
+import { AccessDenied } from '@/components/crm/AccessDenied';
 
 type Client = Tables<'clients'>;
 
@@ -62,6 +64,9 @@ const getStatusColor = (status: string | null): string => {
 const AdminCRM: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Access control
+  const { hasAccess, accessLevel, isLoading: accessLoading } = useCRMAccess();
   
   // CRM settings hook
   const {
@@ -417,6 +422,19 @@ const AdminCRM: React.FC = () => {
     }
   };
 
+  // Access control check
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -458,6 +476,17 @@ const AdminCRM: React.FC = () => {
                   {isBulkSyncing ? 'Синхронизация...' : 'Синхр. Telegram'}
                 </span>
               </Button>
+              {accessLevel === 'admin' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/admin/crm/admins')}
+                  className="gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden sm:inline">Доступ</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

@@ -271,6 +271,33 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_admins: {
+        Row: {
+          access_level: Database["public"]["Enums"]["crm_access_level"]
+          created_at: string
+          id: string
+          name: string | null
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["crm_access_level"]
+          created_at?: string
+          id?: string
+          name?: string | null
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["crm_access_level"]
+          created_at?: string
+          id?: string
+          name?: string | null
+          telegram_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       experts: {
         Row: {
           cases: string | null
@@ -375,6 +402,7 @@ export type Database = {
         | "Бот создан"
         | "Без напоминаний"
         | "Партнер"
+      crm_access_level: "viewer" | "editor" | "admin"
       send_status: "Отправлено" | "Отправить" | "Ожидает"
     }
     CompositeTypes: {
@@ -522,6 +550,7 @@ export const Constants = {
         "Без напоминаний",
         "Партнер",
       ],
+      crm_access_level: ["viewer", "editor", "admin"],
       send_status: ["Отправлено", "Отправить", "Ожидает"],
     },
   },

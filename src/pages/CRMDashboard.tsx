@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Users, TrendingUp, DollarSign, Calendar, RefreshCw, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Users, TrendingUp, DollarSign, Calendar, RefreshCw, BarChart3, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Tables } from '@/integrations/supabase/types';
+import { useCRMAccess } from '@/hooks/useCRMAccess';
+import { AccessDenied } from '@/components/crm/AccessDenied';
 import {
   BarChart,
   Bar,
@@ -64,6 +66,9 @@ const FUNNEL_STAGES = [
 
 const CRMDashboard: React.FC = () => {
   const navigate = useNavigate();
+  
+  // Access control
+  const { hasAccess, isLoading: accessLoading } = useCRMAccess();
 
   const { data: clients, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-clients'],
@@ -213,6 +218,19 @@ const CRMDashboard: React.FC = () => {
         count,
       }));
   }, [stats]);
+
+  // Access control check
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!hasAccess) {
+    return <AccessDenied />;
+  }
 
   if (isLoading) {
     return (
