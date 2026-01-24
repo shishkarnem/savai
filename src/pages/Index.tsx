@@ -47,6 +47,7 @@ const Index: React.FC = () => {
     data: PlanData | null;
     presentation: string;
   } | null>(null);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
   const rotationRef = useRef(0);
   const lastXRef = useRef(0);
 
@@ -61,6 +62,18 @@ const Index: React.FC = () => {
 
   // Telegram WebApp auth
   const { profile: telegramProfile, isLoading: isTelegramLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
+  
+  // Check if Telegram is required for protected actions
+  const requiresTelegram = !isTelegramLoading && !isTelegramWebApp;
+  
+  // Handler for protected actions
+  const handleProtectedAction = (action: () => void) => {
+    if (requiresTelegram) {
+      setShowTelegramModal(true);
+    } else {
+      action();
+    }
+  };
   
   // Log Telegram user info for debugging
   useEffect(() => {
@@ -205,8 +218,6 @@ const Index: React.FC = () => {
     }
   };
 
-  const showTelegramRequiredModal = !isTelegramLoading && !isTelegramWebApp;
-
   // Render step content with animation
   const renderStepContent = () => {
     switch (step) {
@@ -215,8 +226,8 @@ const Index: React.FC = () => {
           <IntroStep
             inputValue={inputValue}
             setInputValue={setInputValue}
-            onClassify={handleClassify}
-            onCalculator={() => setStep('calculator')}
+            onClassify={() => handleProtectedAction(handleClassify)}
+            onCalculator={() => handleProtectedAction(() => setStep('calculator'))}
           />
         );
       case 'classification':
@@ -264,7 +275,7 @@ const Index: React.FC = () => {
   if (step === 'ignition') return (
     <>
       <DevModeToggle />
-      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
+      <TelegramRequiredModal isOpen={showTelegramModal} onClose={() => setShowTelegramModal(false)} />
       <IgnitionScreen
         urlInput={urlInput}
         setUrlInput={setUrlInput}
@@ -280,7 +291,7 @@ const Index: React.FC = () => {
   if (step === 'booting') return (
     <>
       <DevModeToggle />
-      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
+      <TelegramRequiredModal isOpen={showTelegramModal} onClose={() => setShowTelegramModal(false)} />
       <BootLoader bootProgress={bootProgress} bootStatus={bootStatus} />
     </>
   );
@@ -288,7 +299,7 @@ const Index: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
       <DevModeToggle />
-      <TelegramRequiredModal isOpen={showTelegramRequiredModal} />
+      <TelegramRequiredModal isOpen={showTelegramModal} onClose={() => setShowTelegramModal(false)} />
       {isLoading && <ProcessingLoader />}
       <Header onLogoClick={() => setStep('intro')} />
       <main className="w-full max-w-4xl flex-grow">
