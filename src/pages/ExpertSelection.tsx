@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX, Send, Loader2 } from 'lucide-react';
 import Rivets from '@/components/Rivets';
 import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
 import { useSwipeFeedback } from '@/hooks/useSwipeFeedback';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -15,12 +17,35 @@ interface SwipeHistoryItem {
 
 interface LocationState {
   updatedHistory?: SwipeHistoryItem[];
+  fromAISeller?: boolean;
+  selectedPlan?: string;
+}
+
+interface AISellerData {
+  businessType?: string;
+  classificationResult?: string;
+  selectedPlan?: string;
+  presentationText?: string;
+}
+
+interface CalculatorData {
+  fullName?: string;
+  company?: string;
+  product?: string;
+  city?: string;
+  department?: string;
+  employeeCount?: string;
+  averageSalary?: string;
+  functionality?: string;
+  maintenance?: string;
 }
 
 const ExpertSelection: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const { profile: telegramProfile } = useTelegramAuth();
+  const { toast } = useToast();
 
   const [experts, setExperts] = useState<Expert[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,6 +56,10 @@ const ExpertSelection: React.FC = () => {
   const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string; type: 'icon' | 'smoke' | 'gear' }[]>([]);
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Detect if coming from AI Seller flow
+  const fromAISeller = state?.fromAISeller || sessionStorage.getItem('sav-selected-plan');
   
   const { triggerFeedback } = useSwipeFeedback();
 
@@ -178,6 +207,94 @@ const ExpertSelection: React.FC = () => {
         selectedExperts: selectedExperts
       }
     });
+  };
+
+  // Handle confirm selection - save to sessionStorage and send notification
+  const handleConfirmSelection = async () => {
+    if (selectedExperts.length === 0) return;
+    
+    setIsSubmitting(true);
+    
+    const selectedExpert = selectedExperts[0]; // Take first selected expert
+    const expertName = `${selectedExpert.greeting || ''}${selectedExpert.pseudonym || ''}`;
+    
+    // Save to sessionStorage for form submission
+    sessionStorage.setItem('sav-selected-expert', JSON.stringify({
+      id: selectedExpert.id,
+      name: expertName,
+      greeting: selectedExpert.greeting,
+      pseudonym: selectedExpert.pseudonym,
+      spheres: selectedExpert.spheres,
+    }));
+    
+    // Get AI Seller data from sessionStorage
+    const aiSellerData: AISellerData = {
+      businessType: sessionStorage.getItem('sav-business-type') || undefined,
+      classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
+      selectedPlan: sessionStorage.getItem('sav-selected-plan') || state?.selectedPlan || undefined,
+      presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
+    };
+    
+    // Get calculator data if exists
+    const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
+    const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
+    
+    try {
+      // Send notification to expert chat
+      const response = await supabase.functions.invoke('notify-expert-selection', {
+        body: {
+          expert: {
+            id: selectedExpert.id,
+            greeting: selectedExpert.greeting,
+            pseudonym: selectedExpert.pseudonym,
+            spheres: selectedExpert.spheres,
+          },
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
+          },
+          aiSellerInfo: fromAISeller ? aiSellerData : undefined,
+          calculatorInfo: calculatorData.company ? calculatorData : undefined,
+          source: fromAISeller ? 'ai-seller' : 'calculator',
+        },
+      });
+      
+      if (response.error) {
+        console.error('Error sending notification:', response.error);
+        toast({
+          title: 'Ошибка отправки',
+          description: 'Не удалось отправить уведомление эксперту',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Эксперт выбран!',
+          description: `${expertName} получит уведомление о вашем запросе`,
+        });
+        
+        // Clear session data after successful submission
+        sessionStorage.removeItem('sav-business-type');
+        sessionStorage.removeItem('sav-classification-result');
+        sessionStorage.removeItem('sav-selected-plan');
+        sessionStorage.removeItem('sav-presentation-text');
+        sessionStorage.removeItem('sav-calculator-data');
+        
+        // Navigate to success or home
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Произошла ошибка при отправке',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const currentExpert = experts[currentIndex];
@@ -358,6 +475,28 @@ const ExpertSelection: React.FC = () => {
             <p className="opacity-70 mb-6">
               Выбрано экспертов: <span className="text-primary font-bold">{selectedExperts.length}</span>
             </p>
+            
+            {/* Show confirm button if coming from a flow */}
+            {fromAISeller && selectedExperts.length > 0 && (
+              <button 
+                onClick={handleConfirmSelection}
+                disabled={isSubmitting}
+                className="steampunk-button w-full px-6 py-4 mb-4 text-lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Отправка...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5 mr-2" />
+                    Подтвердить выбор эксперта
+                  </>
+                )}
+              </button>
+            )}
+            
             <div className="flex flex-col gap-3">
               <button onClick={navigateToHistory} className="steampunk-button px-6 py-3">
                 <History size={18} /> Посмотреть историю

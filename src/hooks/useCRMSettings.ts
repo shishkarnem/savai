@@ -68,6 +68,7 @@ export const DEFAULT_TABLE_COLUMNS: TableColumn[] = [
   // Тексты
   { key: 'comment', label: 'Комментарий', visible: false },
   { key: 'last_message', label: 'Последнее сообщение', visible: false },
+  { key: 'last_100_messages', label: '100 последних сообщений', visible: false },
   { key: 'reminder_text', label: 'Текст напоминания', visible: false },
   { key: 'reminder_time', label: 'Время напоминания', visible: false },
   { key: 'software_text', label: 'Текст ПО', visible: false },
@@ -114,6 +115,7 @@ export const DEFAULT_CARD_SECTIONS: CardSection[] = [
   { key: 'documents', label: 'Документы', visible: true },
   { key: 'comment', label: 'Комментарий', visible: true },
   { key: 'kp', label: 'Текст КП', visible: false },
+  { key: 'messages', label: '100 последних сообщений', visible: false },
 ];
 
 const STORAGE_KEYS = {

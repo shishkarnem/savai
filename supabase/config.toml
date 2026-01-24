@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.sync-telegram-profile]
 verify_jwt = false
+
+[functions.notify-expert-selection]
+verify_jwt = false
+
+[functions.sync-cities]
+verify_jwt = false
