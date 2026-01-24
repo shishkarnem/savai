@@ -189,10 +189,14 @@ const AISellerPlanDetails: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 <button 
-                  onClick={() => navigate('/experts')}
+                  onClick={() => {
+                    // Save selected plan info for expert selection
+                    sessionStorage.setItem('sav-selected-plan', selectedPlan);
+                    navigate('/experts', { state: { fromAISeller: true, selectedPlan } });
+                  }}
                   className="steampunk-button w-full py-4 text-lg md:text-2xl"
                 >
-                  Запустить Производство
+                  Выбрать эксперта для аудита
                 </button>
                 <button 
                   onClick={() => navigate('/calculator')}
