@@ -1,24 +1,16 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BusinessInfo, PlanData, PlanLevel } from '../types';
-import { classifyBusiness, generatePlanPresentation } from '../services/geminiService';
-import { fetchPlansFromSheet, fetchSpecificPlan } from '../services/sheetService';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import Header from '../components/Header';
 import IgnitionScreen from '../components/IgnitionScreen';
 import BootLoader from '../components/BootLoader';
-import ProcessingLoader from '../components/ProcessingLoader';
 import IntroStep from '../components/IntroStep';
-import ClassificationStep from '../components/ClassificationStep';
-import PlansStep from '../components/PlansStep';
-import PlanDetailsStep from '../components/PlanDetailsStep';
-import CalculatorStep from '../components/CalculatorStep';
-import ExpertStep from '../components/ExpertStep';
 import TelegramRequiredModal from '../components/TelegramRequiredModal';
 import DevModeToggle from '../components/DevModeToggle';
 import { useModelCache } from '@/hooks/useModelCache';
 
-type Step = 'ignition' | 'booting' | 'intro' | 'classification' | 'plans' | 'details' | 'expert' | 'calculator';
+type Step = 'ignition' | 'booting' | 'intro';
 
 const DEFAULT_GLB_URL = "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb";
 
@@ -36,17 +28,9 @@ const pageTransition = {
 };
 
 const Index: React.FC = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>('ignition');
-  const [inputValue, setInputValue] = useState('');
   const [urlInput, setUrlInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
-  const [plans, setPlans] = useState<PlanData[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<PlanLevel | null>(null);
-  const [planDetails, setPlanDetails] = useState<{
-    data: PlanData | null;
-    presentation: string;
-  } | null>(null);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const rotationRef = useRef(0);
   const lastXRef = useRef(0);
@@ -66,12 +50,12 @@ const Index: React.FC = () => {
   // Check if Telegram is required for protected actions
   const requiresTelegram = !isTelegramLoading && !isTelegramWebApp;
   
-  // Handler for protected actions
-  const handleProtectedAction = (action: () => void) => {
+  // Handler for protected actions - navigate to separate pages
+  const handleProtectedNavigation = (path: string) => {
     if (requiresTelegram) {
       setShowTelegramModal(true);
     } else {
-      action();
+      navigate(path);
     }
   };
   
@@ -161,117 +145,6 @@ const Index: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleClassify = async () => {
-    if (!inputValue.trim()) return;
-    setIsLoading(true);
-    try {
-      const info = await classifyBusiness(inputValue);
-      setBusinessInfo(info);
-      setStep('classification');
-    } catch (err) {
-      console.error(err);
-      alert('Ошибка давления пара! Попробуйте снова.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleShowPrices = async () => {
-    if (!businessInfo) return;
-    setIsLoading(true);
-    try {
-      const sheetPlans = await fetchPlansFromSheet({
-        sphere: businessInfo.sphere,
-        segment: businessInfo.segment,
-        category: businessInfo.category
-      });
-      setPlans(sheetPlans);
-      setStep('plans');
-    } catch {
-      setStep('plans');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSelectPlan = async (level: PlanLevel, paymentType: 'monthly' | 'onetime') => {
-    if (!businessInfo) return;
-    setIsLoading(true);
-    setSelectedPlan(level);
-    try {
-      const data = await fetchSpecificPlan({
-        sphere: businessInfo.sphere,
-        segment: businessInfo.segment,
-        category: businessInfo.category,
-        package: level
-      });
-      if (data && paymentType === 'onetime' && data.priceMonth) {
-        data.priceMonth = data.priceMonth * 6;
-      }
-      const presentation = await generatePlanPresentation(businessInfo, level);
-      setPlanDetails({ data, presentation });
-      setStep('details');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Render step content with animation
-  const renderStepContent = () => {
-    switch (step) {
-      case 'intro':
-        return (
-          <IntroStep
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            onClassify={() => handleProtectedAction(handleClassify)}
-            onCalculator={() => handleProtectedAction(() => setStep('calculator'))}
-          />
-        );
-      case 'classification':
-        return businessInfo && (
-          <ClassificationStep
-            businessInfo={businessInfo}
-            onShowPrices={handleShowPrices}
-            onBack={() => setStep('intro')}
-          />
-        );
-      case 'plans':
-        return businessInfo && (
-          <PlansStep
-            plans={plans}
-            onSelectPlan={handleSelectPlan}
-            onExpert={() => setStep('expert')}
-            onCalculator={() => setStep('calculator')}
-          />
-        );
-      case 'details':
-        return planDetails && businessInfo && selectedPlan && (
-          <PlanDetailsStep
-            selectedPlan={selectedPlan}
-            planDetails={planDetails}
-            businessInfo={businessInfo}
-            onBack={() => setStep('plans')}
-            onExpert={() => setStep('expert')}
-            onCalculator={() => setStep('calculator')}
-          />
-        );
-      case 'calculator':
-        return (
-          <CalculatorStep
-            hasBusinessInfo={!!businessInfo}
-            onBack={() => setStep(businessInfo ? 'plans' : 'intro')}
-          />
-        );
-      case 'expert':
-        return <ExpertStep onRestart={() => window.location.reload()} />;
-      default:
-        return null;
-    }
-  };
-
   if (step === 'ignition') return (
     <>
       <DevModeToggle />
@@ -300,7 +173,6 @@ const Index: React.FC = () => {
     <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
       <DevModeToggle />
       <TelegramRequiredModal isOpen={showTelegramModal} onClose={() => setShowTelegramModal(false)} />
-      {isLoading && <ProcessingLoader />}
       <Header onLogoClick={() => setStep('intro')} />
       <main className="w-full max-w-4xl flex-grow">
         <AnimatePresence mode="wait">
@@ -313,7 +185,10 @@ const Index: React.FC = () => {
             transition={pageTransition}
             className="w-full"
           >
-            {renderStepContent()}
+            <IntroStep
+              onClassify={() => handleProtectedNavigation('/ai-seller')}
+              onCalculator={() => handleProtectedNavigation('/calculator')}
+            />
           </motion.div>
         </AnimatePresence>
       </main>
