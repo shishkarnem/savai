@@ -3,9 +3,10 @@ import { Rivets } from './Rivets';
 
 interface TelegramRequiredModalProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
-export const TelegramRequiredModal: React.FC<TelegramRequiredModalProps> = ({ isOpen }) => {
+export const TelegramRequiredModal: React.FC<TelegramRequiredModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleOpenTelegram = () => {
@@ -25,6 +26,16 @@ export const TelegramRequiredModal: React.FC<TelegramRequiredModalProps> = ({ is
         
         <Rivets />
         
+        {/* Close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground transition-colors z-10"
+          >
+            <i className="fa-solid fa-times text-lg"></i>
+          </button>
+        )}
+        
         {/* Header */}
         <div className="px-6 pt-8 pb-4 text-center border-b border-foreground/10">
           <div className="w-20 h-20 mx-auto mb-4 bg-primary/20 rounded-full flex items-center justify-center border-2 border-primary/40">
@@ -41,7 +52,7 @@ export const TelegramRequiredModal: React.FC<TelegramRequiredModalProps> = ({ is
         {/* Content */}
         <div className="px-6 py-6 text-center">
           <p className="text-foreground/80 mb-6 leading-relaxed">
-            Для доступа к функциям <span className="text-primary font-semibold">SAV AI Продавца</span> необходимо 
+            Для доступа к этой функции <span className="text-primary font-semibold">SAV AI</span> необходимо 
             открыть приложение через официального Telegram-бота.
           </p>
           
