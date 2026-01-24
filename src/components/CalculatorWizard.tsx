@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, Loader2, Check, User, Building2, Package, MapPin, Users, Wallet, FileText, Wrench, Tag, RefreshCw, UserCheck } from 'lucide-react';
 import Rivets from './Rivets';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useCities, syncCities } from '@/hooks/useCities';
 import { CitySearchSelect } from './CitySearchSelect';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Expert } from './ExpertCard';
 
 interface CalculatorWizardProps {
   onBack: () => void;
@@ -27,6 +29,7 @@ interface FormData {
   functionality: string;
   maintenance: string;
   promoCode: string;
+  selectedExpertId: string;
 }
 
 // Fallback cities in case DB is empty
@@ -69,6 +72,8 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isSyncingCities, setIsSyncingCities] = useState(false);
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [expertsLoading, setExpertsLoading] = useState(true);
   const { toast } = useToast();
   const { data: citiesData, isLoading: citiesLoading, refetch: refetchCities } = useCities();
   const { profile: telegramProfile } = useTelegramAuth();
@@ -77,6 +82,23 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
   const citiesWithSalary = citiesData && citiesData.length > 0 
     ? citiesData
     : FALLBACK_CITIES.map((name, i) => ({ id: `fallback-${i}`, name, avg_salary: null }));
+
+  // Load experts from database
+  useEffect(() => {
+    const fetchExperts = async () => {
+      setExpertsLoading(true);
+      const { data, error } = await supabase
+        .from('experts')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (!error && data) {
+        setExperts(data);
+      }
+      setExpertsLoading(false);
+    };
+    fetchExperts();
+  }, []);
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -88,7 +110,8 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     averageSalary: '',
     functionality: '',
     maintenance: '',
-    promoCode: ''
+    promoCode: '',
+    selectedExpertId: ''
   });
 
   // Auto-fill name from Telegram profile
@@ -139,7 +162,20 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     }
   };
 
-  const TOTAL_STEPS = 7;
+  const TOTAL_STEPS = 8;
+
+  // Get selected expert data for display
+  const getSelectedExpert = () => {
+    return experts.find(e => e.id === formData.selectedExpertId);
+  };
+
+  // Format expert name as "greeting + pseudonym" (e.g., "Dr.White")
+  const formatExpertName = (expert: Expert | undefined): string => {
+    if (!expert) return selectedExpert;
+    const greeting = expert.greeting || '';
+    const pseudonym = expert.pseudonym || '';
+    return `${greeting}${pseudonym}`;
+  };
 
   const canProceed = (): boolean => {
     switch (currentStep) {
@@ -156,6 +192,8 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
       case 6:
         return !!formData.maintenance;
       case 7:
+        return !!formData.selectedExpertId;
+      case 8:
         return true;
       default:
         return false;
@@ -189,6 +227,9 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
       ? String(telegramProfile.telegram_id) 
       : Date.now().toString();
     
+    // Format expert name for payload
+    const expertName = formatExpertName(getSelectedExpert());
+    
     const payload = {
       formUrl: FORM_URL,
       chat_id: chatId,
@@ -199,7 +240,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
       'Подразделение': DEPARTMENT_LABELS[formData.department] || formData.department,
       'Сотрудников': formData.employeeCount,
       'Средняя ЗП': formData.averageSalary,
-      'Выбранный эксперт': selectedExpert,
+      'Выбранный эксперт': expertName,
       'Функционал': formData.functionality.slice(0, 2000),
       'Обслуживание': formData.maintenance,
       'ПРОМОКОД': formData.promoCode || ''
@@ -472,7 +513,69 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
         );
 
       case 7:
+        return (
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm mb-4">
+              Выберите эксперта, который проведёт бесплатный аудит и поможет с внедрением ИИ.
+            </p>
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-primary" />
+                <label className="text-sm font-medium">Выберите эксперта *</label>
+              </div>
+              
+              {expertsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="grid gap-3 max-h-[350px] overflow-y-auto pr-2">
+                  {experts.map(expert => (
+                    <button
+                      key={expert.id}
+                      onClick={() => updateField('selectedExpertId', expert.id)}
+                      className={`p-4 rounded-lg border text-left transition-all flex items-center gap-4 ${
+                        formData.selectedExpertId === expert.id
+                          ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
+                          : 'border-primary/20 bg-background/30 hover:border-primary/50'
+                      }`}
+                    >
+                      {expert.photo_url ? (
+                        <img 
+                          src={expert.photo_url} 
+                          alt={expert.pseudonym || 'Expert'}
+                          className="w-14 h-14 rounded-full object-cover border-2 border-primary/30"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center">
+                          <User className="w-6 h-6 text-primary" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-primary">
+                          {expert.greeting}{expert.pseudonym}
+                        </div>
+                        {expert.spheres && (
+                          <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                            {expert.spheres}
+                          </div>
+                        )}
+                      </div>
+                      {formData.selectedExpertId === expert.id && (
+                        <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 8:
         const estimatedCost = calculateEstimate();
+        const selectedExpertData = getSelectedExpert();
         
         return (
           <div className="space-y-4">
@@ -504,6 +607,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
                 <p>📂 {DEPARTMENT_LABELS[formData.department]}</p>
                 <p>👥 {formData.employeeCount} сотр. × {parseInt(formData.averageSalary).toLocaleString()}₽</p>
                 <p>🔧 Обслуживание: {formData.maintenance}</p>
+                <p>🎓 Эксперт: {formatExpertName(selectedExpertData)}</p>
                 {formData.promoCode && <p>🏷️ Промокод: {formData.promoCode}</p>}
               </div>
               
