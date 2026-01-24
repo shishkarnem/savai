@@ -1,11 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Rivets from './Rivets';
 
 interface IntroStepProps {
-  inputValue: string;
-  setInputValue: (value: string) => void;
-  onClassify: () => void;
-  onCalculator: () => void;
+  inputValue?: string;
+  setInputValue?: (value: string) => void;
+  onClassify?: () => void;
+  onCalculator?: () => void;
 }
 
 export const IntroStep: React.FC<IntroStepProps> = ({
@@ -14,6 +15,24 @@ export const IntroStep: React.FC<IntroStepProps> = ({
   onClassify,
   onCalculator,
 }) => {
+  const navigate = useNavigate();
+
+  const handleAISeller = () => {
+    if (onClassify) {
+      onClassify();
+    } else {
+      navigate('/ai-seller');
+    }
+  };
+
+  const handleCalculator = () => {
+    if (onCalculator) {
+      onCalculator();
+    } else {
+      navigate('/calculator');
+    }
+  };
+
   return (
     <div className="steam-fade space-y-5">
       <div className="steampunk-border p-5 md:p-10">
@@ -24,15 +43,17 @@ export const IntroStep: React.FC<IntroStepProps> = ({
           и мои шестерни мгновенно определят сегмент и сферу вашего предприятия.
         </p>
         <div className="space-y-5">
-          <textarea
-            className="glass-input w-full p-4 rounded-xl outline-none transition-all h-28 md:h-32 text-sm md:text-lg shadow-inner"
-            placeholder="Опишите ваше дело... (например: мастерская по починке дирижаблей)"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-          />
+          {setInputValue && (
+            <textarea
+              className="glass-input w-full p-4 rounded-xl outline-none transition-all h-28 md:h-32 text-sm md:text-lg shadow-inner"
+              placeholder="Опишите ваше дело... (например: мастерская по починке дирижаблей)"
+              value={inputValue || ''}
+              onChange={(e) => setInputValue(e.target.value)}
+            />
+          )}
           <div className="space-y-2">
             <button 
-              onClick={onClassify}
+              onClick={handleAISeller}
               className="steampunk-button w-full py-3.5 text-lg md:text-2xl"
             >
               <i className="fa-solid fa-robot"></i> ИИ-Продавец
@@ -50,7 +71,7 @@ export const IntroStep: React.FC<IntroStepProps> = ({
 
           <div className="space-y-2">
             <button 
-              onClick={onCalculator}
+              onClick={handleCalculator}
               className="w-full bg-transparent border border-foreground/10 text-primary py-3 text-base md:text-lg hover:bg-foreground/5 transition-all flex items-center justify-center gap-2 rounded-xl backdrop-blur-sm"
             >
               <i className="fa-solid fa-users-cog"></i> ИИ для других отделов
