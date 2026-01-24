@@ -1,13 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { useCRMAccess } from '@/hooks/useCRMAccess';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import Rivets from '@/components/Rivets';
+import { Users } from 'lucide-react';
 
 const TelegramProfile: React.FC = () => {
   const navigate = useNavigate();
   const { telegramUser, profile, isLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
+  const { hasAccess: hasCRMAccess, accessLevel } = useCRMAccess();
 
   if (isLoading) {
     return (
@@ -186,6 +189,28 @@ const TelegramProfile: React.FC = () => {
           >
             <i className="fa-solid fa-star text-primary mr-2"></i>
             <span className="text-primary">Добро пожаловать! Вы новый инженер в системе SAV AI</span>
+          </motion.div>
+        )}
+
+        {/* CRM Access Button - Only for admins */}
+        {hasCRMAccess && (
+          <motion.div
+            className="mt-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+          >
+            <Button
+              onClick={() => navigate('/admin/crm')}
+              className="w-full gap-2 bg-primary/20 hover:bg-primary/30 border border-primary/40"
+              variant="outline"
+            >
+              <Users className="w-4 h-4" />
+              Войти в CRM
+              {accessLevel === 'admin' && (
+                <span className="ml-2 text-xs bg-primary/30 px-2 py-0.5 rounded">Admin</span>
+              )}
+            </Button>
           </motion.div>
         )}
       </motion.div>
