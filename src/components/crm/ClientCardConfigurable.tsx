@@ -531,6 +531,22 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
                   </>
                 )}
 
+                {/* История сообщений */}
+                {isSectionVisible('last_100_messages') && client.last_100_messages && (
+                  <>
+                    <Section title="История сообщений (последние 100)">
+                      <div className="bg-muted/30 rounded-lg p-3 border border-border">
+                        <ScrollArea className="max-h-60">
+                          <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-sans">
+                            {client.last_100_messages}
+                          </pre>
+                        </ScrollArea>
+                      </div>
+                    </Section>
+                    <Separator />
+                  </>
+                )}
+
                 {/* Ссылки */}
                 {isSectionVisible('documents') && (client.contract_ooo_url || client.contract_ip_url || client.project_plan_url) && (
                   <>

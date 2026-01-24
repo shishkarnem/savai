@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2 } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -409,6 +409,8 @@ const AdminCRM: React.FC = () => {
         return <div className="max-w-[200px] truncate text-sm">{client.comment || '—'}</div>;
       case 'last_message':
         return <div className="max-w-[200px] truncate text-sm">{client.last_message || '—'}</div>;
+      case 'last_100_messages':
+        return <div className="max-w-[200px] truncate text-sm">{client.last_100_messages ? `${client.last_100_messages.substring(0, 50)}...` : '—'}</div>;
       case 'reminder_text':
         return <div className="max-w-[150px] truncate text-sm">{client.reminder_text || '—'}</div>;
       case 'reminder_time':
@@ -477,15 +479,27 @@ const AdminCRM: React.FC = () => {
                 </span>
               </Button>
               {accessLevel === 'admin' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/admin/crm/admins')}
-                  className="gap-2"
-                >
-                  <Shield className="h-4 w-4" />
-                  <span className="hidden sm:inline">Доступ</span>
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/admin/crm/messages')}
+                    className="gap-2"
+                    title="Конструктор сообщений"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="hidden sm:inline">Сообщения</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/admin/crm/admins')}
+                    className="gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span className="hidden sm:inline">Доступ</span>
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
