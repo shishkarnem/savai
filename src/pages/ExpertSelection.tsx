@@ -8,6 +8,7 @@ import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
 import { useSwipeFeedback } from '@/hooks/useSwipeFeedback';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getMessageConstructorSettings } from '@/pages/CRMMessageConstructor';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -160,6 +161,9 @@ const ExpertSelection: React.FC = () => {
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
+    // Get message constructor settings
+    const messageSettings = getMessageConstructorSettings();
+    
     try {
       const response = await supabase.functions.invoke('notify-expert-selection', {
         body: {
@@ -179,6 +183,7 @@ const ExpertSelection: React.FC = () => {
           aiSellerInfo: fromAISeller ? aiSellerData : undefined,
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
+          messageSettings: messageSettings,
         },
       });
       
@@ -291,6 +296,9 @@ const ExpertSelection: React.FC = () => {
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
+    // Get message constructor settings
+    const messageSettings = getMessageConstructorSettings();
+    
     try {
       // Send notification to expert chat
       const response = await supabase.functions.invoke('notify-expert-selection', {
@@ -311,6 +319,7 @@ const ExpertSelection: React.FC = () => {
           aiSellerInfo: fromAISeller ? aiSellerData : undefined,
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
+          messageSettings: messageSettings,
         },
       });
       
