@@ -618,6 +618,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
               clientId={client.id}
               telegramId={client.telegram_id}
               clientName={client.full_name}
+              clientData={client}
             />
           </TabsContent>
         </Tabs>
