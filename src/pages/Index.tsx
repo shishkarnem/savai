@@ -3,17 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import Header from '../components/Header';
-import IgnitionScreen from '../components/IgnitionScreen';
 import BootLoader from '../components/BootLoader';
 import IntroStep from '../components/IntroStep';
 import TelegramRequiredModal from '../components/TelegramRequiredModal';
 import DevModeToggle from '../components/DevModeToggle';
 import { useModelCache } from '@/hooks/useModelCache';
-import { MODEL_URLS } from '@/hooks/useRouteModel';
 
-type Step = 'ignition' | 'booting' | 'intro';
-
-const DEFAULT_GLB_URL = MODEL_URLS.FULL_ROBOT;
+type Step = 'booting' | 'intro';
 
 // Page transition variants
 const pageVariants = {
@@ -30,20 +26,19 @@ const pageTransition = {
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>('ignition');
-  const [urlInput, setUrlInput] = useState('');
+  const [step, setStep] = useState<Step>('booting');
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const rotationRef = useRef(0);
   const lastXRef = useRef(0);
 
-  // Model cache hook
+  // Model cache hook - for boot animation only
   const {
     isModelCached,
     isModelLoaded,
     bootProgress,
     bootStatus,
     startBooting,
-  } = useModelCache(DEFAULT_GLB_URL);
+  } = useModelCache();
 
   // Telegram WebApp auth
   const { profile: telegramProfile, isLoading: isTelegramLoading, isTelegramWebApp, isNewUser } = useTelegramAuth();
@@ -72,7 +67,7 @@ const Index: React.FC = () => {
     }
   }, [telegramProfile, isNewUser]);
 
-  // Initial loading logic with cache support
+  // Initial loading logic
   useEffect(() => {
     // Check if model is already loaded (container has 'active' class)
     const bgModelContainer = document.getElementById('bg-model-container');
@@ -84,19 +79,9 @@ const Index: React.FC = () => {
       return;
     }
 
-    // If cached, start loading faster
-    if (isModelCached) {
-      setStep('booting');
-      startBooting(DEFAULT_GLB_URL);
-    } else {
-      // Normal flow - wait a bit then start
-      const timer = setTimeout(() => {
-        setStep('booting');
-        startBooting(DEFAULT_GLB_URL);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isModelCached, startBooting]);
+    // Start boot animation
+    startBooting();
+  }, [startBooting]);
 
   // Handle model loaded state
   useEffect(() => {
@@ -115,7 +100,7 @@ const Index: React.FC = () => {
       const currentX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
       const deltaX = currentX - lastXRef.current;
       lastXRef.current = currentX;
-      if (step !== 'ignition' && step !== 'booting') {
+      if (step !== 'booting') {
         rotationRef.current += deltaX * 0.4;
         const bgModel = document.querySelector('#bg-model') as any;
         if (bgModel) {
@@ -135,33 +120,6 @@ const Index: React.FC = () => {
     };
   }, [step]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = event => {
-      setStep('booting');
-      startBooting(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  if (step === 'ignition') return (
-    <>
-      <DevModeToggle />
-      <TelegramRequiredModal isOpen={showTelegramModal} onClose={() => setShowTelegramModal(false)} />
-      <IgnitionScreen
-        urlInput={urlInput}
-        setUrlInput={setUrlInput}
-        onFileUpload={handleFileUpload}
-        onUrlLoad={() => {
-          setStep('booting');
-          startBooting(urlInput.trim());
-        }}
-      />
-    </>
-  );
-  
   if (step === 'booting') return (
     <>
       <DevModeToggle />
