@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getModelForRoute, MODEL_URLS } from './useRouteModel';
 
-const MODEL_CACHE_KEY = 'sav_ai_model_loaded';
-const MODEL_CACHE_TIMESTAMP_KEY = 'sav_ai_model_timestamp';
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+// This hook is now simplified - main logic moved to useRouteModel
+// Keeping for backward compatibility with Index.tsx boot sequence
 
 interface UseModelCacheReturn {
   isModelCached: boolean;
@@ -11,26 +9,29 @@ interface UseModelCacheReturn {
   bootProgress: number;
   bootStatus: string;
   markModelLoaded: () => void;
-  startBooting: (source: string) => void;
+  startBooting: () => void;
   resetCache: () => void;
 }
 
-export const useModelCache = (defaultModelUrl: string): UseModelCacheReturn => {
+export const useModelCache = (): UseModelCacheReturn => {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [bootProgress, setBootProgress] = useState(0);
   const [bootStatus, setBootStatus] = useState('Инициализация котлов...');
   const listenersAttached = useRef(false);
 
-  // Check if model was cached and cache is still valid
+  // Check if any model was previously loaded
   const checkCache = useCallback((): boolean => {
     try {
-      const cached = localStorage.getItem(MODEL_CACHE_KEY);
-      const timestamp = localStorage.getItem(MODEL_CACHE_TIMESTAMP_KEY);
-      
-      if (cached === 'true' && timestamp) {
-        const cacheTime = parseInt(timestamp, 10);
-        const now = Date.now();
-        if (now - cacheTime < CACHE_DURATION) {
+      // Check if bg-model-container is already active
+      const container = document.getElementById('bg-model-container');
+      if (container?.classList.contains('active')) {
+        return true;
+      }
+      // Check localStorage for any cached model
+      const keys = ['full', 'head', 'body', 'mini'];
+      for (const key of keys) {
+        const cached = localStorage.getItem(`sav_model_cache_${key}`);
+        if (cached === 'loaded') {
           return true;
         }
       }
@@ -44,34 +45,26 @@ export const useModelCache = (defaultModelUrl: string): UseModelCacheReturn => {
 
   const markModelLoaded = useCallback(() => {
     setIsModelLoaded(true);
-    try {
-      localStorage.setItem(MODEL_CACHE_KEY, 'true');
-      localStorage.setItem(MODEL_CACHE_TIMESTAMP_KEY, Date.now().toString());
-    } catch {
-      // localStorage not available
-    }
   }, []);
 
   const resetCache = useCallback(() => {
     try {
-      localStorage.removeItem(MODEL_CACHE_KEY);
-      localStorage.removeItem(MODEL_CACHE_TIMESTAMP_KEY);
+      const keys = ['full', 'head', 'body', 'mini'];
+      for (const key of keys) {
+        localStorage.removeItem(`sav_model_cache_${key}`);
+        localStorage.removeItem(`sav_model_ts_${key}`);
+      }
     } catch {
       // localStorage not available
     }
   }, []);
 
-  const startBooting = useCallback((source: string) => {
+  const startBooting = useCallback(() => {
     setBootProgress(0);
     setBootStatus('Связь с сервером чертежей...');
-    
-    const modelViewer = document.querySelector('#bg-model') as any;
-    if (modelViewer) {
-      modelViewer.src = source;
-    }
   }, []);
 
-  // Attach listeners for model loading
+  // Attach listeners for model loading (for boot animation)
   useEffect(() => {
     if (listenersAttached.current) return;
     
@@ -90,7 +83,6 @@ export const useModelCache = (defaultModelUrl: string): UseModelCacheReturn => {
     const onLoad = () => {
       setBootProgress(100);
       setBootStatus('Механизм запущен!');
-      document.getElementById('bg-model-container')?.classList.add('active');
       markModelLoaded();
     };
 
@@ -104,18 +96,13 @@ export const useModelCache = (defaultModelUrl: string): UseModelCacheReturn => {
     modelViewer.addEventListener('error', onError);
     listenersAttached.current = true;
 
-    // If cached, preload immediately
-    if (isModelCached && !modelViewer.src) {
-      modelViewer.src = defaultModelUrl;
-    }
-
     return () => {
       modelViewer.removeEventListener('progress', onProgress);
       modelViewer.removeEventListener('load', onLoad);
       modelViewer.removeEventListener('error', onError);
       listenersAttached.current = false;
     };
-  }, [isModelCached, defaultModelUrl, markModelLoaded, resetCache]);
+  }, [markModelLoaded, resetCache]);
 
   return {
     isModelCached,
