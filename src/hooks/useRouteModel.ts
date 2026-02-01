@@ -21,6 +21,9 @@ export const MODEL_URLS = {
   MINI_ROBOT: "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLLFMJFCwoKwo-KUkvNRcvMjYQcDpzMzNZOiY3KjsZPD80BBsmGDYlJH8ycSUrVCIjMCAbFWYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb",
 } as const;
 
+// Track which URLs have failed to load - fallback to FULL_ROBOT
+const failedUrls = new Set<string>();
+
 // Route to model mapping
 const ROUTE_MODEL_MAP: Record<string, string> = {
   // Full robot pages
@@ -99,20 +102,34 @@ const markModelCached = (url: string): void => {
 };
 
 export const getModelForRoute = (pathname: string): string => {
+  let targetModel: string;
+  
   // First check exact matches
   if (ROUTE_MODEL_MAP[pathname]) {
-    return ROUTE_MODEL_MAP[pathname];
-  }
-  
-  // Then check pattern matches
-  for (const { pattern, model } of ROUTE_PATTERNS) {
-    if (pattern.test(pathname)) {
-      return model;
+    targetModel = ROUTE_MODEL_MAP[pathname];
+  } else {
+    // Then check pattern matches
+    let found = false;
+    for (const { pattern, model } of ROUTE_PATTERNS) {
+      if (pattern.test(pathname)) {
+        targetModel = model;
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      targetModel = MODEL_URLS.FULL_ROBOT;
     }
   }
   
-  // Default to full robot
-  return MODEL_URLS.FULL_ROBOT;
+  // If this URL previously failed, use fallback
+  if (failedUrls.has(targetModel!)) {
+    console.log('[RouteModel] URL previously failed, using FULL_ROBOT fallback');
+    return MODEL_URLS.FULL_ROBOT;
+  }
+  
+  return targetModel!;
 };
 
 interface UseRouteModelReturn {
@@ -205,8 +222,23 @@ export const useRouteModel = (): UseRouteModelReturn => {
     };
 
     const handleError = (event: any) => {
-      console.error('[RouteModel] Model load error:', event.detail?.message || 'Unknown error');
-      setIsLoading(false);
+      const failedUrl = currentModelRef.current;
+      console.error('[RouteModel] Model load error:', event.detail?.message || 'Unknown error', 'URL:', getModelKey(failedUrl));
+      
+      // Mark URL as failed and fallback to FULL_ROBOT
+      if (failedUrl && failedUrl !== MODEL_URLS.FULL_ROBOT) {
+        failedUrls.add(failedUrl);
+        console.log('[RouteModel] Falling back to FULL_ROBOT');
+        
+        // Try loading FULL_ROBOT instead
+        const modelViewer = document.querySelector('#bg-model') as any;
+        if (modelViewer) {
+          modelViewer.src = MODEL_URLS.FULL_ROBOT;
+          currentModelRef.current = MODEL_URLS.FULL_ROBOT;
+        }
+      } else {
+        setIsLoading(false);
+      }
     };
 
     modelViewer.addEventListener('progress', handleProgress);

@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import React from 'react';
 import { useRouteModel } from '@/hooks/useRouteModel';
+import ModelLoadingIndicator from './ModelLoadingIndicator';
 
 /**
  * Component that manages the 3D model background based on current route.
@@ -7,9 +8,15 @@ import { useRouteModel } from '@/hooks/useRouteModel';
  */
 export const ModelBackground: React.FC = () => {
   // This hook handles all the route-based model switching
-  useRouteModel();
+  const { isLoading, loadProgress } = useRouteModel();
   
-  return null; // This component doesn't render anything
+  return (
+    <ModelLoadingIndicator 
+      isLoading={isLoading && loadProgress < 100 && loadProgress > 0} 
+      progress={loadProgress}
+      modelName="механизма"
+    />
+  );
 };
 
 export default ModelBackground;
