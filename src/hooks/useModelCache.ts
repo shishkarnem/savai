@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getModelForRoute, MODEL_URLS } from './useRouteModel';
 
 const MODEL_CACHE_KEY = 'sav_ai_model_loaded';
 const MODEL_CACHE_TIMESTAMP_KEY = 'sav_ai_model_timestamp';

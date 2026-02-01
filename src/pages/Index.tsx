@@ -9,10 +9,11 @@ import IntroStep from '../components/IntroStep';
 import TelegramRequiredModal from '../components/TelegramRequiredModal';
 import DevModeToggle from '../components/DevModeToggle';
 import { useModelCache } from '@/hooks/useModelCache';
+import { MODEL_URLS } from '@/hooks/useRouteModel';
 
 type Step = 'ignition' | 'booting' | 'intro';
 
-const DEFAULT_GLB_URL = "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb";
+const DEFAULT_GLB_URL = MODEL_URLS.FULL_ROBOT;
 
 // Page transition variants
 const pageVariants = {

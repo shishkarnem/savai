@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TelegramAuthProvider } from "./contexts/TelegramAuthContext";
+import ModelBackground from "./components/ModelBackground";
 import Index from "./pages/Index";
 import AISeller from "./pages/AISeller";
 import AISellerResult from "./pages/AISellerResult";
@@ -35,6 +36,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ModelBackground />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/profile" element={<TelegramProfile />} />
