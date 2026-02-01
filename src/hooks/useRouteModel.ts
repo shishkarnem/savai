@@ -12,13 +12,13 @@ export const MODEL_URLS = {
   FULL_ROBOT: "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLJ1MGPTJ2Vxs9JjAnEQc6LxgNYmgDFSJoJjMfDDsZOjs8BBsmCzQ_JHppBnY7ByAOExIjbGYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb",
   
   // Робот голова
-  HEAD_ROBOT: "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLKlMJFCwtLAsVAClzOAZYOxkSfRNyMjl0HgU9cTsZPCc0BBsmGDYlJH9sVi0TBhIpSCNODWYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb",
+  HEAD_ROBOT: "https://github.com/shishkarnem/savai/raw/refs/heads/main/steampunk%20head.glb",
   
   // Робот тело
-  BODY_ROBOT: "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLLVMJFCwvCDkZPVEVGyVFOAUFZnR2B0xCBDItHDsZPDs0BBsmGDYlJH9sdnYzWTMlQTVJFWYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb",
+  BODY_ROBOT: "https://github.com/shishkarnem/savai/raw/refs/heads/main/robot%20armor.glb",
   
   // Робот мини
-  MINI_ROBOT: "https://file.pro-talk.ru/tgf/GgMpJwQ9JCkYKglyGHQLLFMJFCwoKwo-KUkvNRcvMjYQcDpzMzNZOiY3KjsZPD80BBsmGDYlJH8ycSUrVCIjMCAbFWYqJTkmVVpuYlYEbAV1VAgQCjEWKxseGVMpKyRYNBcXUm4FNwJgOi4UAQ4SOS4tKzsGCyUuTwJgBHdVAGB-S3U.glb",
+  MINI_ROBOT: "https://github.com/shishkarnem/savai/raw/refs/heads/main/Mini%20robot.glb",
 } as const;
 
 // Track which URLs have failed to load - fallback to FULL_ROBOT
