@@ -220,7 +220,7 @@
   #bg-model {
     width: 100%; 
     height: 100%;
-    filter: brightness(0.4) contrast(1.1);
+    filter: brightness(0.9) contrast(1.05);
   }
 
   /* Custom model viewer progress bar */
