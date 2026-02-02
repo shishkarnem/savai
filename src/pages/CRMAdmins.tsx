@@ -206,7 +206,7 @@ export default function CRMAdmins() {
   // Show loading
   if (accessLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -218,7 +218,7 @@ export default function CRMAdmins() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900">
+    <div className="min-h-screen">
       <div className="container mx-auto p-4 md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -227,16 +227,16 @@ export default function CRMAdmins() {
               variant="ghost"
               size="icon"
               onClick={() => navigate('/admin/crm')}
-              className="text-zinc-400 hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                 <Shield className="w-6 h-6 text-primary" />
                 Управление доступом
               </h1>
-              <p className="text-zinc-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 Администраторы CRM системы
               </p>
             </div>
@@ -249,7 +249,7 @@ export default function CRMAdmins() {
                 Добавить
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-zinc-900 border-zinc-700">
+            <DialogContent className="steampunk-border border-brass/30">
               <DialogHeader>
                 <DialogTitle>Добавить администратора</DialogTitle>
                 <DialogDescription>
@@ -266,7 +266,7 @@ export default function CRMAdmins() {
                     placeholder="123456789"
                     value={newTelegramId}
                     onChange={(e) => setNewTelegramId(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="glass-input"
                   />
                 </div>
                 
@@ -277,17 +277,17 @@ export default function CRMAdmins() {
                     placeholder="Иван Иванов"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="bg-zinc-800 border-zinc-700"
+                    className="glass-input"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Уровень доступа</Label>
                   <Select value={newAccessLevel} onValueChange={(v) => setNewAccessLevel(v as AccessLevel)}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700">
+                    <SelectTrigger className="glass-input border-brass/30">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectContent className="steampunk-border border-brass/30">
                       <SelectItem value="viewer">
                         <div className="flex items-center gap-2">
                           <Eye className="w-4 h-4" />
@@ -331,37 +331,37 @@ export default function CRMAdmins() {
 
         {/* Access levels info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <div className="steampunk-border bg-blue-500/10 border-blue-500/20 p-4">
             <div className="flex items-center gap-2 mb-2">
               <Eye className="w-5 h-5 text-blue-400" />
               <span className="font-medium text-blue-400">Просмотр</span>
             </div>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-muted-foreground">
               Просмотр клиентов и данных без возможности редактирования
             </p>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+          <div className="steampunk-border bg-amber-500/10 border-amber-500/20 p-4">
             <div className="flex items-center gap-2 mb-2">
               <Edit3 className="w-5 h-5 text-amber-400" />
               <span className="font-medium text-amber-400">Редактор</span>
             </div>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-muted-foreground">
               Редактирование данных клиентов и отправка сообщений
             </p>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
+          <div className="steampunk-border bg-emerald-500/10 border-emerald-500/20 p-4">
             <div className="flex items-center gap-2 mb-2">
               <Crown className="w-5 h-5 text-emerald-400" />
               <span className="font-medium text-emerald-400">Администратор</span>
             </div>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-muted-foreground">
               Полный доступ включая управление другими администраторами
             </p>
           </div>
         </div>
 
         {/* Admins table */}
-        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl overflow-hidden">
+        <div className="steampunk-border overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -369,21 +369,21 @@ export default function CRMAdmins() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-700 hover:bg-transparent">
-                  <TableHead className="text-zinc-400">Telegram ID</TableHead>
-                  <TableHead className="text-zinc-400">Имя</TableHead>
-                  <TableHead className="text-zinc-400">Уровень доступа</TableHead>
-                  <TableHead className="text-zinc-400">Добавлен</TableHead>
-                  <TableHead className="text-zinc-400 text-right">Действия</TableHead>
+                <TableRow className="border-brass/20 hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">Telegram ID</TableHead>
+                  <TableHead className="text-muted-foreground">Имя</TableHead>
+                  <TableHead className="text-muted-foreground">Уровень доступа</TableHead>
+                  <TableHead className="text-muted-foreground">Добавлен</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {admins?.map((admin) => (
-                  <TableRow key={admin.id} className="border-zinc-700">
-                    <TableCell className="font-mono text-zinc-300">
+                  <TableRow key={admin.id} className="border-brass/20">
+                    <TableCell className="font-mono text-foreground/80">
                       {admin.telegram_id}
                     </TableCell>
-                    <TableCell className="text-white">
+                    <TableCell className="text-foreground">
                       {admin.name || '—'}
                     </TableCell>
                     <TableCell>
@@ -394,7 +394,7 @@ export default function CRMAdmins() {
                           access_level: v as AccessLevel 
                         })}
                       >
-                        <SelectTrigger className="w-40 bg-transparent border-zinc-700">
+                        <SelectTrigger className="w-40 bg-transparent border-brass/30">
                           <Badge 
                             variant="outline" 
                             className={`${accessLevelColors[admin.access_level]} flex items-center gap-1`}
@@ -403,7 +403,7 @@ export default function CRMAdmins() {
                             {accessLevelLabels[admin.access_level]}
                           </Badge>
                         </SelectTrigger>
-                        <SelectContent className="bg-zinc-800 border-zinc-700">
+                        <SelectContent className="steampunk-border border-brass/30">
                           <SelectItem value="viewer">
                             <div className="flex items-center gap-2">
                               <Eye className="w-4 h-4" />
@@ -425,7 +425,7 @@ export default function CRMAdmins() {
                         </SelectContent>
                       </Select>
                     </TableCell>
-                    <TableCell className="text-zinc-400">
+                    <TableCell className="text-muted-foreground">
                       {format(new Date(admin.created_at), 'dd MMM yyyy', { locale: ru })}
                     </TableCell>
                     <TableCell className="text-right">

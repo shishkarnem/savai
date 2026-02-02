@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
@@ -28,8 +28,6 @@ const Index: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('booting');
   const [showTelegramModal, setShowTelegramModal] = useState(false);
-  const rotationRef = useRef(0);
-  const lastXRef = useRef(0);
 
   // Model cache hook - for boot animation only
   const {
@@ -90,35 +88,6 @@ const Index: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [isModelLoaded, step]);
-
-  // Mouse/touch rotation handler
-  useEffect(() => {
-    const handleStart = (e: MouseEvent | TouchEvent) => {
-      lastXRef.current = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-    };
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      const currentX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-      const deltaX = currentX - lastXRef.current;
-      lastXRef.current = currentX;
-      if (step !== 'booting') {
-        rotationRef.current += deltaX * 0.4;
-        const bgModel = document.querySelector('#bg-model') as any;
-        if (bgModel) {
-          bgModel.cameraOrbit = `${rotationRef.current}deg 75deg 105%`;
-        }
-      }
-    };
-    window.addEventListener('mousedown', handleStart);
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('touchstart', handleStart, { passive: false });
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    return () => {
-      window.removeEventListener('mousedown', handleStart);
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('touchstart', handleStart);
-      window.removeEventListener('touchmove', handleMove);
-    };
-  }, [step]);
 
   if (step === 'booting') return (
     <>

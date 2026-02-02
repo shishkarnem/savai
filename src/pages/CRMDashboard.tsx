@@ -241,9 +241,9 @@ const CRMDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-brass/20 bg-card/30 backdrop-blur-xl sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -284,7 +284,7 @@ const CRMDashboard: React.FC = () => {
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
@@ -293,7 +293,7 @@ const CRMDashboard: React.FC = () => {
               <div className="text-2xl font-bold mt-1">{stats?.total || 0}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
@@ -303,7 +303,7 @@ const CRMDashboard: React.FC = () => {
               <div className="text-xs text-muted-foreground">{stats?.successRate}%</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-blue-500" />
@@ -312,7 +312,7 @@ const CRMDashboard: React.FC = () => {
               <div className="text-2xl font-bold mt-1 text-blue-500">{stats?.inProgress || 0}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-red-500 rotate-180" />
@@ -322,7 +322,7 @@ const CRMDashboard: React.FC = () => {
               <div className="text-xs text-muted-foreground">{stats?.rejectionRate}%</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-cyan-500" />
@@ -331,7 +331,7 @@ const CRMDashboard: React.FC = () => {
               <div className="text-2xl font-bold mt-1 text-cyan-500">{stats?.active || 0}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="steampunk-border">
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-primary" />
@@ -347,7 +347,7 @@ const CRMDashboard: React.FC = () => {
         {/* Charts Row 1 */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Sales Funnel */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Воронка продаж</CardTitle>
             </CardHeader>
@@ -389,7 +389,7 @@ const CRMDashboard: React.FC = () => {
           </Card>
 
           {/* Status Distribution */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Распределение по статусам</CardTitle>
             </CardHeader>
@@ -431,7 +431,7 @@ const CRMDashboard: React.FC = () => {
         {/* Charts Row 2 */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Monthly Dynamics */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Динамика по месяцам</CardTitle>
             </CardHeader>
@@ -473,7 +473,7 @@ const CRMDashboard: React.FC = () => {
           </Card>
 
           {/* City Distribution */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Топ-10 городов</CardTitle>
             </CardHeader>
@@ -512,7 +512,7 @@ const CRMDashboard: React.FC = () => {
         {/* Charts Row 3 */}
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Tariff Distribution */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Распределение по тарифам</CardTitle>
             </CardHeader>
@@ -549,7 +549,7 @@ const CRMDashboard: React.FC = () => {
           </Card>
 
           {/* Expert Distribution */}
-          <Card>
+          <Card className="steampunk-border">
             <CardHeader>
               <CardTitle className="text-base">Топ-10 экспертов</CardTitle>
             </CardHeader>
@@ -586,7 +586,7 @@ const CRMDashboard: React.FC = () => {
         </div>
 
         {/* Conversion Table */}
-        <Card>
+        <Card className="steampunk-border">
           <CardHeader>
             <CardTitle className="text-base">Конверсия по этапам воронки</CardTitle>
           </CardHeader>

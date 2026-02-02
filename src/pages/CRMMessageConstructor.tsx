@@ -639,7 +639,7 @@ export default function CRMMessageConstructor() {
   // Access control check
   if (accessLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -650,9 +650,9 @@ export default function CRMMessageConstructor() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-brass/20 bg-card/30 backdrop-blur-xl sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button
@@ -680,7 +680,7 @@ export default function CRMMessageConstructor() {
 
       <main className="container mx-auto px-4 py-6 space-y-8">
         {/* Expert notification constructor */}
-        <Card>
+        <Card className="steampunk-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bot className="w-5 h-5" />
@@ -701,7 +701,7 @@ export default function CRMMessageConstructor() {
         </Card>
 
         {/* Client chat constructor */}
-        <Card>
+        <Card className="steampunk-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5" />

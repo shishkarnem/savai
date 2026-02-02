@@ -21,7 +21,7 @@ export const ModelLoadingIndicator: React.FC<ModelLoadingIndicatorProps> = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
         >
           {/* Steampunk container */}
           <div className="relative bg-gradient-to-b from-[#2a1810] to-[#1a0f08] rounded-lg border-2 border-brass/60 shadow-2xl px-6 py-3 min-w-[280px]">
