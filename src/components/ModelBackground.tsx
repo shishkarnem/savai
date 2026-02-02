@@ -1,14 +1,19 @@
 import React from 'react';
 import { useRouteModel } from '@/hooks/useRouteModel';
+import { useModelRotation } from '@/hooks/useModelRotation';
 import ModelLoadingIndicator from './ModelLoadingIndicator';
 
 /**
  * Component that manages the 3D model background based on current route.
  * Must be placed inside a Router context.
+ * Also enables swipe/drag rotation on the background model.
  */
 export const ModelBackground: React.FC = () => {
   // This hook handles all the route-based model switching
   const { isLoading, loadProgress } = useRouteModel();
+  
+  // Enable rotation interaction on all pages
+  useModelRotation();
   
   return (
     <ModelLoadingIndicator 
