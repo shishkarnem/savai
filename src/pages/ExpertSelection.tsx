@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX, Send, Loader2 } from 'lucide-react';
 import Rivets from '@/components/Rivets';
-import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
+import { Expert, SwipeDirection } from '@/components/ExpertCard';
 import { useSwipeFeedback } from '@/hooks/useSwipeFeedback';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getMessageConstructorSettings } from '@/pages/CRMMessageConstructor';
+import { useImagePreloader } from '@/hooks/useImagePreloader';
+import { useViewedExperts } from '@/hooks/useViewedExperts';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -48,7 +51,7 @@ const ExpertSelection: React.FC = () => {
   const { profile: telegramProfile } = useTelegramAuth();
   const { toast } = useToast();
 
-  const [experts, setExperts] = useState<Expert[]>([]);
+  const [allExperts, setAllExperts] = useState<Expert[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipeHistory, setSwipeHistory] = useState<SwipeHistoryItem[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
@@ -59,10 +62,35 @@ const ExpertSelection: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Viewed experts persistence
+  const { markAsViewed, isViewed, clearViewed } = useViewedExperts();
+  
+  // Filter out already viewed experts
+  const experts = useMemo(() => {
+    return allExperts.filter(e => !isViewed(e.id));
+  }, [allExperts, isViewed]);
+  
+  // Preload images for next 3 experts
+  const imageUrls = useMemo(() => {
+    return experts.slice(currentIndex, currentIndex + 3).map(e => e.photo_url);
+  }, [experts, currentIndex]);
+  
+  const { isLoaded, isLoading } = useImagePreloader(imageUrls);
+  
   // Detect if coming from AI Seller flow
   const fromAISeller = state?.fromAISeller || sessionStorage.getItem('sav-selected-plan');
   
   const { triggerFeedback } = useSwipeFeedback();
+
+  // Motion values for smooth swipe
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 0, 200], [-15, 0, 15]);
+  const opacity = useTransform(
+    x,
+    [-200, -100, 0, 100, 200],
+    [0.5, 1, 1, 1, 0.5]
+  );
 
   useEffect(() => {
     fetchExperts();
@@ -76,22 +104,18 @@ const ExpertSelection: React.FC = () => {
         timestamp: new Date(item.timestamp)
       }));
       
-      // Only update if history is different (prevent duplicates)
       setSwipeHistory(prev => {
-        // If we already have this history, don't update
         if (prev.length === restoredHistory.length) {
           return prev;
         }
         return restoredHistory;
       });
       
-      // Update selected experts based on updated history
       const selected = restoredHistory
         .filter(item => item.direction === 'right')
         .map(item => item.expert);
       setSelectedExperts(selected);
       
-      // Clear state to prevent re-triggering
       window.history.replaceState({}, document.title);
     }
   }, [state]);
@@ -104,7 +128,7 @@ const ExpertSelection: React.FC = () => {
       .order('created_at', { ascending: true });
     
     if (!error && data) {
-      setExperts(data);
+      setAllExperts(data);
     }
     setLoading(false);
   };
@@ -116,40 +140,36 @@ const ExpertSelection: React.FC = () => {
       ? ['💨', '⚡', '💔', '🌪️', '❌']
       : ['⏳', '🔄', '💭', '🎯', '⏸️'];
 
-    // Main icons
-    const newIcons = Array.from({ length: 8 }, (_, i) => ({
+    const newIcons = Array.from({ length: 6 }, (_, i) => ({
       id: Date.now() + i,
-      x: Math.random() * 200 - 100,
-      y: Math.random() * -150 - 50,
+      x: Math.random() * 160 - 80,
+      y: Math.random() * -120 - 40,
       icon: icons[Math.floor(Math.random() * icons.length)],
       type: 'icon' as const
     }));
 
-    // Smoke particles
-    const smokeParticles = Array.from({ length: 6 }, (_, i) => ({
+    const smokeParticles = Array.from({ length: 4 }, (_, i) => ({
       id: Date.now() + 100 + i,
-      x: Math.random() * 160 - 80,
-      y: Math.random() * -120 - 30,
+      x: Math.random() * 120 - 60,
+      y: Math.random() * -100 - 20,
       icon: '💨',
       type: 'smoke' as const
     }));
 
-    // Gears
-    const gears = Array.from({ length: 4 }, (_, i) => ({
+    const gears = Array.from({ length: 3 }, (_, i) => ({
       id: Date.now() + 200 + i,
-      x: Math.random() * 180 - 90,
-      y: Math.random() * -100 - 40,
+      x: Math.random() * 140 - 70,
+      y: Math.random() * -80 - 30,
       icon: '⚙️',
       type: 'gear' as const
     }));
 
     setExplosionIcons([...newIcons, ...smokeParticles, ...gears]);
-    setTimeout(() => setExplosionIcons([]), 1000);
+    setTimeout(() => setExplosionIcons([]), 800);
   }, []);
 
-  // Send notification when expert is selected (swipe right)
+  // Send notification when expert is selected
   const sendExpertNotification = useCallback(async (expert: Expert) => {
-    // Get AI Seller data from sessionStorage
     const aiSellerData: AISellerData = {
       businessType: sessionStorage.getItem('sav-business-type') || undefined,
       classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
@@ -157,11 +177,9 @@ const ExpertSelection: React.FC = () => {
       presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
     };
     
-    // Get calculator data if exists
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
-    // Get message constructor settings
     const messageSettings = getMessageConstructorSettings();
     
     try {
@@ -205,55 +223,80 @@ const ExpertSelection: React.FC = () => {
     if (currentIndex >= experts.length) return;
     
     const currentExpert = experts[currentIndex];
+    
+    // Mark as viewed immediately
+    markAsViewed(currentExpert.id, direction);
+    
     setSwipeAnimation(direction);
     triggerExplosion(direction);
     
-    // Trigger haptic feedback and sound
     if (soundEnabled) {
       triggerFeedback(direction);
     }
 
+    // Animate out then update state
     setTimeout(() => {
-      setSwipeHistory(prev => [...prev, { 
-        expert: currentExpert, 
-        direction, 
-        timestamp: new Date() 
-      }]);
+      setSwipeHistory(prev => {
+        // Check for duplicates
+        const exists = prev.some(item => item.expert.id === currentExpert.id);
+        if (exists) {
+          return prev.map(item => 
+            item.expert.id === currentExpert.id 
+              ? { ...item, direction, timestamp: new Date() }
+              : item
+          );
+        }
+        return [...prev, { expert: currentExpert, direction, timestamp: new Date() }];
+      });
 
       if (direction === 'right') {
-        setSelectedExperts(prev => [...prev, currentExpert]);
-        setCurrentIndex(prev => prev + 1);
-        // Send notification immediately when expert is selected
+        setSelectedExperts(prev => {
+          if (prev.some(e => e.id === currentExpert.id)) return prev;
+          return [...prev, currentExpert];
+        });
         sendExpertNotification(currentExpert);
-      } else if (direction === 'down') {
-        // Move to end of queue - don't increment index since array shifts
-        setExperts(prev => [...prev.slice(0, currentIndex), ...prev.slice(currentIndex + 1), currentExpert]);
-      } else {
-        // left - reject
-        setCurrentIndex(prev => prev + 1);
       }
       
+      setCurrentIndex(prev => prev + 1);
       setSwipeAnimation(null);
-    }, 300);
-  }, [currentIndex, experts, triggerExplosion, sendExpertNotification, soundEnabled, triggerFeedback]);
+      
+      // Reset motion values
+      x.set(0);
+      y.set(0);
+    }, 250);
+  }, [currentIndex, experts, triggerExplosion, sendExpertNotification, soundEnabled, triggerFeedback, markAsViewed, x, y]);
 
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    const threshold = 100;
-    const { offset } = info;
+  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+    const threshold = 80; // Lower threshold for easier swiping
+    const { offset, velocity } = info;
 
-    if (offset.x > threshold) {
+    // Check velocity for quick flicks
+    const xVelocity = Math.abs(velocity.x);
+    const yVelocity = Math.abs(velocity.y);
+
+    if (offset.x > threshold || (offset.x > 40 && xVelocity > 500)) {
       handleSwipe('right');
-    } else if (offset.x < -threshold) {
+    } else if (offset.x < -threshold || (offset.x < -40 && xVelocity > 500)) {
       handleSwipe('left');
-    } else if (offset.y > threshold) {
+    } else if (offset.y > threshold || (offset.y > 40 && yVelocity > 500)) {
       handleSwipe('down');
+    } else {
+      // Snap back
+      x.set(0);
+      y.set(0);
     }
-  };
+  }, [handleSwipe, x, y]);
+
+  // Tap zone handlers
+  const handleTapZone = useCallback((direction: SwipeDirection) => {
+    handleSwipe(direction);
+  }, [handleSwipe]);
 
   const resetSwipes = () => {
     setCurrentIndex(0);
     setSwipeHistory([]);
     setSelectedExperts([]);
+    clearViewed();
     fetchExperts();
   };
 
@@ -266,16 +309,14 @@ const ExpertSelection: React.FC = () => {
     });
   };
 
-  // Handle confirm selection - save to sessionStorage and send notification
   const handleConfirmSelection = async () => {
     if (selectedExperts.length === 0) return;
     
     setIsSubmitting(true);
     
-    const selectedExpert = selectedExperts[0]; // Take first selected expert
+    const selectedExpert = selectedExperts[0];
     const expertName = `${selectedExpert.greeting || ''}${selectedExpert.pseudonym || ''}`;
     
-    // Save to sessionStorage for form submission
     sessionStorage.setItem('sav-selected-expert', JSON.stringify({
       id: selectedExpert.id,
       name: expertName,
@@ -284,7 +325,6 @@ const ExpertSelection: React.FC = () => {
       spheres: selectedExpert.spheres,
     }));
     
-    // Get AI Seller data from sessionStorage
     const aiSellerData: AISellerData = {
       businessType: sessionStorage.getItem('sav-business-type') || undefined,
       classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
@@ -292,15 +332,12 @@ const ExpertSelection: React.FC = () => {
       presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
     };
     
-    // Get calculator data if exists
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
-    // Get message constructor settings
     const messageSettings = getMessageConstructorSettings();
     
     try {
-      // Send notification to expert chat
       const response = await supabase.functions.invoke('notify-expert-selection', {
         body: {
           expert: {
@@ -336,14 +373,12 @@ const ExpertSelection: React.FC = () => {
           description: `${expertName} получит уведомление о вашем запросе`,
         });
         
-        // Clear session data after successful submission
         sessionStorage.removeItem('sav-business-type');
         sessionStorage.removeItem('sav-classification-result');
         sessionStorage.removeItem('sav-selected-plan');
         sessionStorage.removeItem('sav-presentation-text');
         sessionStorage.removeItem('sav-calculator-data');
         
-        // Navigate to success or home
         navigate('/');
       }
     } catch (error) {
@@ -360,6 +395,7 @@ const ExpertSelection: React.FC = () => {
 
   const currentExpert = experts[currentIndex];
   const isComplete = currentIndex >= experts.length;
+  const currentImageLoading = currentExpert?.photo_url && isLoading(currentExpert.photo_url);
 
   if (loading) {
     return (
@@ -449,7 +485,7 @@ const ExpertSelection: React.FC = () => {
                     <Heart className="text-green-400" size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-green-400">Свайп вправо →</p>
+                    <p className="font-bold text-green-400">Свайп/тап вправо →</p>
                     <p className="text-sm opacity-70">Выбрать эксперта</p>
                   </div>
                 </div>
@@ -459,7 +495,7 @@ const ExpertSelection: React.FC = () => {
                     <ThumbsDown className="text-red-400" size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-red-400">Свайп влево ←</p>
+                    <p className="font-bold text-red-400">Свайп/тап влево ←</p>
                     <p className="text-sm opacity-70">Отказаться</p>
                   </div>
                 </div>
@@ -469,8 +505,8 @@ const ExpertSelection: React.FC = () => {
                     <ChevronDown className="text-yellow-400" size={24} />
                   </div>
                   <div>
-                    <p className="font-bold text-yellow-400">Свайп вниз ↓</p>
-                    <p className="text-sm opacity-70">Пропустить (вернётся в конец)</p>
+                    <p className="font-bold text-yellow-400">Свайп/тап вниз ↓</p>
+                    <p className="text-sm opacity-70">Пропустить</p>
                   </div>
                 </div>
               </div>
@@ -488,7 +524,7 @@ const ExpertSelection: React.FC = () => {
 
       {/* Main Card Area */}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg relative">
-        {/* Explosion Icons, Smoke & Gears */}
+        {/* Explosion Icons */}
         <AnimatePresence>
           {explosionIcons.map(icon => (
             <motion.span
@@ -502,20 +538,20 @@ const ExpertSelection: React.FC = () => {
               }}
               animate={{ 
                 opacity: 0, 
-                scale: icon.type === 'smoke' ? 3 : icon.type === 'gear' ? 1.5 : 2, 
+                scale: icon.type === 'smoke' ? 2.5 : icon.type === 'gear' ? 1.2 : 1.5, 
                 x: icon.x, 
                 y: icon.y,
                 rotate: icon.type === 'gear' ? 360 : 0
               }}
               exit={{ opacity: 0 }}
               transition={{ 
-                duration: icon.type === 'smoke' ? 1 : icon.type === 'gear' ? 0.8 : 0.6, 
+                duration: icon.type === 'smoke' ? 0.7 : icon.type === 'gear' ? 0.6 : 0.5, 
                 ease: 'easeOut' 
               }}
               className={`absolute z-50 pointer-events-none ${
-                icon.type === 'smoke' ? 'text-4xl opacity-60' : 
-                icon.type === 'gear' ? 'text-3xl text-secondary' : 
-                'text-2xl'
+                icon.type === 'smoke' ? 'text-3xl opacity-60' : 
+                icon.type === 'gear' ? 'text-2xl text-secondary' : 
+                'text-xl'
               }`}
               style={{ top: '50%', left: '50%' }}
             >
@@ -537,7 +573,6 @@ const ExpertSelection: React.FC = () => {
               Выбрано экспертов: <span className="text-primary font-bold">{selectedExperts.length}</span>
             </p>
             
-            {/* Show confirm button if coming from a flow */}
             {fromAISeller && selectedExperts.length > 0 && (
               <button 
                 onClick={handleConfirmSelection}
@@ -568,17 +603,38 @@ const ExpertSelection: React.FC = () => {
             </div>
           </motion.div>
         ) : currentExpert && (
-          <>
+          <div className="relative w-full">
+            {/* Tap zones overlay */}
+            <div className="absolute inset-0 z-20 pointer-events-none">
+              {/* Left tap zone */}
+              <button
+                onClick={() => handleTapZone('left')}
+                className="absolute left-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-red-500/10 transition-colors rounded-l-xl"
+                aria-label="Отказаться"
+              />
+              {/* Right tap zone */}
+              <button
+                onClick={() => handleTapZone('right')}
+                className="absolute right-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-green-500/10 transition-colors rounded-r-xl"
+                aria-label="Выбрать"
+              />
+              {/* Bottom tap zone */}
+              <button
+                onClick={() => handleTapZone('down')}
+                className="absolute bottom-0 left-1/4 w-1/2 h-1/5 pointer-events-auto active:bg-yellow-500/10 transition-colors rounded-b-xl"
+                aria-label="Пропустить"
+              />
+            </div>
+
             {/* Card Stack Preview */}
             {experts.slice(currentIndex + 1, currentIndex + 3).map((_, i) => (
               <div
                 key={i}
-                className="absolute w-full steampunk-border p-4"
+                className="absolute w-full steampunk-border p-4 bg-background/30"
                 style={{
-                  transform: `perspective(1000px) rotateX(8deg) scale(${0.95 - i * 0.03}) translateY(${(i + 1) * 12}px)`,
-                  opacity: 0.5 - i * 0.2,
+                  transform: `scale(${0.95 - i * 0.03}) translateY(${(i + 1) * 10}px)`,
+                  opacity: 0.4 - i * 0.15,
                   zIndex: -i - 1,
-                  transformOrigin: 'center top'
                 }}
               />
             ))}
@@ -588,31 +644,41 @@ const ExpertSelection: React.FC = () => {
               key={currentExpert.id}
               drag
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-              dragElastic={0.7}
+              dragElastic={0.9}
               onDragEnd={handleDragEnd}
-              initial={{ rotateX: 8 }}
+              style={{ x, y, rotate, opacity }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={
-                swipeAnimation === 'right' ? { x: 500, opacity: 0, rotate: 20, rotateX: 0 } :
-                swipeAnimation === 'left' ? { x: -500, opacity: 0, rotate: -20, rotateX: 0 } :
-                swipeAnimation === 'down' ? { y: 500, opacity: 0, rotateX: 25 } :
-                { x: 0, y: 0, rotate: 0, rotateX: 8 }
+                swipeAnimation === 'right' ? { x: 400, opacity: 0, rotate: 15, scale: 0.9 } :
+                swipeAnimation === 'left' ? { x: -400, opacity: 0, rotate: -15, scale: 0.9 } :
+                swipeAnimation === 'down' ? { y: 400, opacity: 0, scale: 0.9 } :
+                { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }
               }
-              transition={{ type: 'spring', damping: 20 }}
-              className="steampunk-border p-4 md:p-6 w-full cursor-grab active:cursor-grabbing relative z-10"
-              style={{ perspective: 1000, transformOrigin: 'center top' }}
-              whileDrag={{ scale: 1.02, rotateX: 0 }}
+              transition={{ 
+                type: 'spring', 
+                damping: 25, 
+                stiffness: 300,
+                mass: 0.5
+              }}
+              className="steampunk-border p-4 md:p-6 w-full cursor-grab active:cursor-grabbing relative z-10 touch-pan-y will-change-transform"
+              whileDrag={{ scale: 1.02 }}
             >
               <Rivets />
               
-              {/* Expert Photo */}
+              {/* Expert Photo with transparency */}
               {currentExpert.photo_url && (
                 <div className="relative mb-4 rounded-xl overflow-hidden aspect-video">
-                  <img 
-                    src={currentExpert.photo_url} 
-                    alt={currentExpert.pseudonym || 'Expert'}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  {currentImageLoading ? (
+                    <Skeleton className="w-full h-full" />
+                  ) : (
+                    <img 
+                      src={currentExpert.photo_url} 
+                      alt={currentExpert.pseudonym || 'Expert'}
+                      className="w-full h-full object-cover opacity-80"
+                      loading="eager"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   <div className="absolute bottom-3 left-3">
                     <h3 className="text-2xl md:text-3xl text-white drop-shadow-lg">
                       {currentExpert.greeting}{currentExpert.pseudonym}
@@ -629,30 +695,30 @@ const ExpertSelection: React.FC = () => {
                 </div>
               )}
 
-              {/* Expert Info */}
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+              {/* Expert Info with transparency */}
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-2 bg-background/40 backdrop-blur-sm rounded-lg p-3 -mx-1">
                 {currentExpert.spheres && (
                   <div>
                     <p className="text-primary text-xs uppercase mb-1 opacity-70">💰 Сферы</p>
-                    <p className="text-sm opacity-80">{currentExpert.spheres}</p>
+                    <p className="text-sm opacity-70">{currentExpert.spheres}</p>
                   </div>
                 )}
                 {currentExpert.tools && (
                   <div>
                     <p className="text-primary text-xs uppercase mb-1 opacity-70">⚒️ Инструменты</p>
-                    <p className="text-sm opacity-80 line-clamp-2">{currentExpert.tools}</p>
+                    <p className="text-sm opacity-70 line-clamp-2">{currentExpert.tools}</p>
                   </div>
                 )}
                 {currentExpert.cases && (
                   <div>
                     <p className="text-primary text-xs uppercase mb-1 opacity-70">🤖 Кейсы</p>
-                    <p className="text-sm opacity-80 line-clamp-2">{currentExpert.cases}</p>
+                    <p className="text-sm opacity-70 line-clamp-2">{currentExpert.cases}</p>
                   </div>
                 )}
                 {currentExpert.other_info && (
                   <div>
                     <p className="text-primary text-xs uppercase mb-1 opacity-70">📌 Другое</p>
-                    <p className="text-sm opacity-80 line-clamp-2">{currentExpert.other_info}</p>
+                    <p className="text-sm opacity-70 line-clamp-2">{currentExpert.other_info}</p>
                   </div>
                 )}
               </div>
@@ -674,7 +740,7 @@ const ExpertSelection: React.FC = () => {
                 </div>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </div>
 
@@ -685,7 +751,7 @@ const ExpertSelection: React.FC = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => handleSwipe('left')}
-            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center hover:bg-red-500/30 transition-all shadow-lg"
+            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center hover:bg-red-500/30 transition-all shadow-lg active:scale-90"
           >
             <X className="text-red-400" size={28} />
           </motion.button>
@@ -694,7 +760,7 @@ const ExpertSelection: React.FC = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => handleSwipe('down')}
-            className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-yellow-500/20 border-2 border-yellow-500/50 flex items-center justify-center hover:bg-yellow-500/30 transition-all shadow-lg"
+            className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-yellow-500/20 border-2 border-yellow-500/50 flex items-center justify-center hover:bg-yellow-500/30 transition-all shadow-lg active:scale-90"
           >
             <ChevronDown className="text-yellow-400" size={24} />
           </motion.button>
@@ -703,7 +769,7 @@ const ExpertSelection: React.FC = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => handleSwipe('right')}
-            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-green-500/20 border-2 border-green-500/50 flex items-center justify-center hover:bg-green-500/30 transition-all shadow-lg"
+            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-green-500/20 border-2 border-green-500/50 flex items-center justify-center hover:bg-green-500/30 transition-all shadow-lg active:scale-90"
           >
             <Heart className="text-green-400" size={28} />
           </motion.button>
@@ -713,7 +779,7 @@ const ExpertSelection: React.FC = () => {
       {/* Footer */}
       <footer className="mt-6 text-center">
         <p className="text-[10px] uppercase tracking-widest opacity-30">
-          Перетащите карточку или используйте кнопки
+          Свайп, тап или кнопки • История сохраняется
         </p>
       </footer>
     </div>
