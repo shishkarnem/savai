@@ -65,10 +65,20 @@ const ExpertSelection: React.FC = () => {
   // Viewed experts persistence
   const { markAsViewed, isViewed, clearViewed } = useViewedExperts();
   
-  // Filter out already viewed experts
-  const experts = useMemo(() => {
-    return allExperts.filter(e => !isViewed(e.id));
-  }, [allExperts, isViewed]);
+  // Filter out already viewed experts - keep stable list for session
+  const [sessionExperts, setSessionExperts] = useState<Expert[]>([]);
+  
+  // Initialize session experts once when allExperts loads
+  useEffect(() => {
+    if (allExperts.length > 0 && sessionExperts.length === 0) {
+      const filtered = allExperts.filter(e => !isViewed(e.id));
+      setSessionExperts(filtered);
+    }
+  }, [allExperts, isViewed, sessionExperts.length]);
+  
+  // Use session experts for stable counting (doesn't shrink during session)
+  const experts = sessionExperts;
+  const totalExperts = allExperts.length;
   
   // Preload images for next 3 experts
   const imageUrls = useMemo(() => {
@@ -296,6 +306,7 @@ const ExpertSelection: React.FC = () => {
     setCurrentIndex(0);
     setSwipeHistory([]);
     setSelectedExperts([]);
+    setSessionExperts([]);
     clearViewed();
     fetchExperts();
   };
@@ -604,28 +615,6 @@ const ExpertSelection: React.FC = () => {
           </motion.div>
         ) : currentExpert && (
           <div className="relative w-full">
-            {/* Tap zones overlay */}
-            <div className="absolute inset-0 z-20 pointer-events-none">
-              {/* Left tap zone */}
-              <button
-                onClick={() => handleTapZone('left')}
-                className="absolute left-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-red-500/10 transition-colors rounded-l-xl"
-                aria-label="Отказаться"
-              />
-              {/* Right tap zone */}
-              <button
-                onClick={() => handleTapZone('right')}
-                className="absolute right-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-green-500/10 transition-colors rounded-r-xl"
-                aria-label="Выбрать"
-              />
-              {/* Bottom tap zone */}
-              <button
-                onClick={() => handleTapZone('down')}
-                className="absolute bottom-0 left-1/4 w-1/2 h-1/5 pointer-events-auto active:bg-yellow-500/10 transition-colors rounded-b-xl"
-                aria-label="Пропустить"
-              />
-            </div>
-
             {/* Card Stack Preview */}
             {experts.slice(currentIndex + 1, currentIndex + 3).map((_, i) => (
               <div
@@ -639,7 +628,7 @@ const ExpertSelection: React.FC = () => {
               />
             ))}
 
-            {/* Main Card */}
+            {/* Main Card - entire card is draggable */}
             <motion.div
               key={currentExpert.id}
               drag
@@ -660,9 +649,33 @@ const ExpertSelection: React.FC = () => {
                 stiffness: 300,
                 mass: 0.5
               }}
-              className="steampunk-border p-4 md:p-6 w-full cursor-grab active:cursor-grabbing relative z-10 touch-pan-y will-change-transform"
+              className="steampunk-border p-4 md:p-6 w-full cursor-grab active:cursor-grabbing relative z-10 touch-none will-change-transform select-none"
               whileDrag={{ scale: 1.02 }}
             >
+              {/* Tap zones inside card */}
+              <div className="absolute inset-0 z-30 pointer-events-none rounded-xl overflow-hidden">
+                {/* Left tap zone */}
+                <button
+                  onClick={() => handleTapZone('left')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute left-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-red-500/20 transition-colors"
+                  aria-label="Отказаться"
+                />
+                {/* Right tap zone */}
+                <button
+                  onClick={() => handleTapZone('right')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-0 w-1/4 h-4/5 pointer-events-auto active:bg-green-500/20 transition-colors"
+                  aria-label="Выбрать"
+                />
+                {/* Bottom tap zone */}
+                <button
+                  onClick={() => handleTapZone('down')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute bottom-0 left-1/4 w-1/2 h-1/5 pointer-events-auto active:bg-yellow-500/20 transition-colors"
+                  aria-label="Пропустить"
+                />
+              </div>
               <Rivets />
               
               {/* Expert Photo with transparency */}
@@ -723,21 +736,14 @@ const ExpertSelection: React.FC = () => {
                 )}
               </div>
 
-              {/* Card Counter */}
-              <div className="mt-4 pt-3 border-t border-foreground/10 flex justify-between items-center">
+              {/* Card Counter - shows viewed/total from allExperts */}
+              <div className="mt-4 pt-3 border-t border-foreground/10 flex justify-between items-center relative z-40">
                 <span className="text-xs opacity-50">
-                  {currentIndex + 1} / {experts.length}
+                  Просмотрено: {swipeHistory.length} / {totalExperts}
                 </span>
-                <div className="flex gap-1">
-                  {Array.from({ length: Math.min(experts.length, 5) }).map((_, i) => (
-                    <div 
-                      key={i}
-                      className={`w-2 h-2 rounded-full ${
-                        i === currentIndex % 5 ? 'bg-primary' : 'bg-foreground/20'
-                      }`}
-                    />
-                  ))}
-                </div>
+                <span className="text-xs opacity-50">
+                  Осталось: {experts.length - currentIndex}
+                </span>
               </div>
             </motion.div>
           </div>
