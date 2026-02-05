@@ -10,10 +10,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import Rivets from '@/components/Rivets';
 import { 
   Users, MapPin, Briefcase, DollarSign, Calendar, 
-  MessageSquare, Bot, ExternalLink, Copy, Check, Loader2
+  MessageSquare, Bot, ExternalLink, Copy, Check, Loader2, History, Calculator, Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
+
+interface UserCalculation {
+  id: string;
+  calculation_type: string;
+  data: Record<string, any>;
+  created_at: string;
+}
 
 type Client = Tables<'clients'>;
 type TelegramProfileType = Tables<'telegram_profiles'>;
@@ -72,6 +79,33 @@ const TelegramProfile: React.FC = () => {
   // Determine which telegram ID to use
   const isPublicProfile = !!paramTelegramId;
   const targetTelegramId = paramTelegramId || profile?.telegram_id?.toString();
+
+  // Fetch user calculations history
+  const { data: calculations } = useQuery({
+    queryKey: ['user-calculations', targetTelegramId],
+    queryFn: async () => {
+      if (!targetTelegramId) return [];
+      const telegramIdNum = parseInt(targetTelegramId, 10);
+      if (isNaN(telegramIdNum)) return [];
+      
+      const { data, error } = await supabase
+        .from('user_calculations')
+        .select('*')
+        .eq('telegram_id', telegramIdNum)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.error('Error fetching calculations:', error);
+        return [];
+      }
+      return data as UserCalculation[];
+    },
+    enabled: !!targetTelegramId,
+  });
+
+  const calculatorHistory = calculations?.filter(c => c.calculation_type === 'calculator') || [];
+  const aiSellerHistory = calculations?.filter(c => c.calculation_type === 'ai_seller') || [];
 
   // Fetch client data from CRM
   const { data: clientData, isLoading: clientLoading } = useQuery({
@@ -523,6 +557,74 @@ const TelegramProfile: React.FC = () => {
                 <span className="ml-2 text-xs bg-primary/30 px-2 py-0.5 rounded">Admin</span>
               )}
             </Button>
+          </motion.div>
+        )}
+
+        {/* Quick Actions */}
+        {!isPublicProfile && (
+          <motion.div
+            className="mt-6 pt-6 border-t border-foreground/10 space-y-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+          >
+            <h3 className="text-sm font-semibold text-primary mb-3">Быстрые действия</h3>
+            
+            <Button
+              onClick={() => navigate('/experts/history')}
+              variant="outline"
+              className="w-full gap-2 justify-start"
+            >
+              <History className="w-4 h-4" />
+              История свайпов экспертов
+            </Button>
+
+            {calculatorHistory.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-foreground/50">История калькулятора ({calculatorHistory.length})</p>
+                {calculatorHistory.slice(0, 3).map(calc => (
+                  <Button
+                    key={calc.id}
+                    variant="ghost"
+                    className="w-full gap-2 justify-start text-sm h-auto py-2"
+                    onClick={() => {
+                      sessionStorage.setItem('sav-calculator-data', JSON.stringify(calc.data));
+                      navigate('/calculator');
+                    }}
+                  >
+                    <Calculator className="w-4 h-4 text-primary" />
+                    <span className="truncate">{calc.data?.company || calc.data?.product || 'Расчет'}</span>
+                    <span className="ml-auto text-xs text-foreground/40">
+                      {new Date(calc.created_at).toLocaleDateString('ru-RU')}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {aiSellerHistory.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-foreground/50">История ИИ-продавца ({aiSellerHistory.length})</p>
+                {aiSellerHistory.slice(0, 3).map(calc => (
+                  <Button
+                    key={calc.id}
+                    variant="ghost"
+                    className="w-full gap-2 justify-start text-sm h-auto py-2"
+                    onClick={() => {
+                      if (calc.data?.businessType) sessionStorage.setItem('sav-business-type', calc.data.businessType);
+                      if (calc.data?.selectedPlan) sessionStorage.setItem('sav-selected-plan', calc.data.selectedPlan);
+                      navigate('/ai-seller/plans');
+                    }}
+                  >
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <span className="truncate">{calc.data?.businessType || calc.data?.selectedPlan || 'Анализ'}</span>
+                    <span className="ml-auto text-xs text-foreground/40">
+                      {new Date(calc.created_at).toLocaleDateString('ru-RU')}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </motion.div>

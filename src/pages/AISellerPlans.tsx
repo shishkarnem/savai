@@ -5,7 +5,11 @@ import { PlanData, PlanLevel } from '@/types';
 import { FALLBACK_PLANS } from '@/constants';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
-import { Repeat, Zap, Check, Info, Cog, Wallet, ChevronLeft } from 'lucide-react';
+import { Repeat, Zap, Check, Info, Cog, Wallet, ChevronLeft, HelpCircle } from 'lucide-react';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import AITariffAdvisor from '@/components/AITariffAdvisor';
 
 type PaymentType = 'monthly' | 'onetime';
 
@@ -17,9 +21,12 @@ const pageVariants = {
 
 const AISellerPlans: React.FC = () => {
   const navigate = useNavigate();
+  const { profile: telegramProfile } = useTelegramAuth();
+  const { toast } = useToast();
   const [plans, setPlans] = useState<PlanData[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<PlanLevel | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType | null>(null);
+  const [showTariffAdvisor, setShowTariffAdvisor] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('sav-plans');
@@ -40,10 +47,32 @@ const AISellerPlans: React.FC = () => {
     setPaymentType(type);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (selectedPlan && paymentType) {
       sessionStorage.setItem('sav-selected-plan', selectedPlan);
       sessionStorage.setItem('sav-payment-type', paymentType);
+
+      // Send notification
+      try {
+        await supabase.functions.invoke('notify-tariff-selection', {
+          body: {
+            tariffName: selectedPlan,
+            paymentType,
+            clientInfo: {
+              telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+              telegramUsername: telegramProfile?.username || null,
+              fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            },
+            businessInfo: {
+              type: sessionStorage.getItem('sav-business-type'),
+              classification: sessionStorage.getItem('sav-classification-result'),
+            },
+          },
+        });
+      } catch (error) {
+        console.error('Error sending tariff notification:', error);
+      }
+
       navigate(`/ai-seller/plan/${encodeURIComponent(selectedPlan)}`);
     }
   };
@@ -248,6 +277,7 @@ const AISellerPlans: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
       <Header onLogoClick={() => navigate('/')} />
+      <AITariffAdvisor isOpen={showTariffAdvisor} onClose={() => setShowTariffAdvisor(false)} />
       <main className="w-full max-w-4xl flex-grow">
         <motion.div
           variants={pageVariants}
@@ -266,7 +296,22 @@ const AISellerPlans: React.FC = () => {
                 <ChevronLeft className="w-5 h-5 text-primary" />
               </button>
               <h2 className="text-3xl md:text-5xl text-primary">Каталог Решений</h2>
+              <button
+                onClick={() => setShowTariffAdvisor(true)}
+                className="ml-auto p-2 rounded-lg border border-accent/30 bg-accent/10 hover:bg-accent/20 transition-colors"
+                title="Какой тариф мне подходит?"
+              >
+                <HelpCircle className="w-5 h-5 text-accent" />
+              </button>
             </div>
+            
+            <button
+              onClick={() => setShowTariffAdvisor(true)}
+              className="w-full py-3 px-4 bg-gradient-to-r from-accent/20 to-primary/20 border border-accent/30 rounded-xl text-accent hover:from-accent/30 hover:to-primary/30 transition-all flex items-center justify-center gap-2 mb-4"
+            >
+              <HelpCircle className="w-5 h-5" />
+              Какой тариф мне подходит?
+            </button>
             
             <div className="bg-foreground/5 backdrop-blur-xl p-3.5 border-l-2 border-primary rounded-r-xl mb-6 italic text-[11px] md:text-sm">
               <p className="opacity-70">Выберите конфигурацию, наиболее пригодную для вашей мануфактуры.</p>
