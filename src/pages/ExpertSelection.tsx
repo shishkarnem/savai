@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX, Send, Loader2 } from 'lucide-react';
+import { Check, X, ChevronDown, RotateCcw, History, HelpCircle, Sparkles, Heart, ThumbsDown, ArrowLeft, Volume2, VolumeX, Send, Loader2, Wand2 } from 'lucide-react';
 import Rivets from '@/components/Rivets';
 import { Expert, SwipeDirection } from '@/components/ExpertCard';
 import { useSwipeFeedback } from '@/hooks/useSwipeFeedback';
@@ -12,6 +12,7 @@ import { getMessageConstructorSettings } from '@/pages/CRMMessageConstructor';
 import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useViewedExperts } from '@/hooks/useViewedExperts';
 import { Skeleton } from '@/components/ui/skeleton';
+import AIExpertMatcher from '@/components/AIExpertMatcher';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -61,6 +62,7 @@ const ExpertSelection: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAIMatcher, setShowAIMatcher] = useState(false);
   
   // Viewed experts persistence
   const { markAsViewed, isViewed, clearViewed } = useViewedExperts();
@@ -72,7 +74,9 @@ const ExpertSelection: React.FC = () => {
   useEffect(() => {
     if (allExperts.length > 0 && sessionExperts.length === 0) {
       const filtered = allExperts.filter(e => !isViewed(e.id));
-      setSessionExperts(filtered);
+      // Randomize the order
+      const shuffled = [...filtered].sort(() => Math.random() - 0.5);
+      setSessionExperts(shuffled);
     }
   }, [allExperts, isViewed, sessionExperts.length]);
   
@@ -135,7 +139,7 @@ const ExpertSelection: React.FC = () => {
     const { data, error } = await supabase
       .from('experts')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
     
     if (!error && data) {
       setAllExperts(data);
@@ -310,6 +314,21 @@ const ExpertSelection: React.FC = () => {
     clearViewed();
     fetchExperts();
   };
+ 
+   const handleAIExpertSelect = (expert: any) => {
+     setShowAIMatcher(false);
+     // Find expert in list and simulate swipe right
+     const expertInList = experts.find(e => e.id === expert.id);
+     if (expertInList) {
+       markAsViewed(expertInList.id, 'right');
+       setSelectedExperts(prev => [...prev, expertInList]);
+       sendExpertNotification(expertInList);
+       toast({
+         title: 'Эксперт выбран!',
+         description: `${expert.greeting || ''}${expert.pseudonym || ''} добавлен в избранное`,
+       });
+     }
+   };
 
   const navigateToHistory = () => {
     navigate('/experts/history', {
@@ -421,6 +440,12 @@ const ExpertSelection: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 relative overflow-hidden">
+      <AIExpertMatcher
+        isOpen={showAIMatcher}
+        onClose={() => setShowAIMatcher(false)}
+        onSelectExpert={handleAIExpertSelect}
+      />
+
       {/* Background gears */}
       <i className="fa-solid fa-gear gear text-9xl top-10 -left-10 opacity-5"></i>
       <i className="fa-solid fa-gear gear text-7xl bottom-20 -right-5 opacity-5" style={{ animationDirection: 'reverse' }}></i>
@@ -436,6 +461,13 @@ const ExpertSelection: React.FC = () => {
         </button>
         <h1 className="text-2xl md:text-3xl text-center">Подбор Эксперта</h1>
         <div className="flex gap-2">
+          <button 
+            onClick={() => setShowAIMatcher(true)}
+            className="p-2 rounded-full bg-accent/10 border border-accent/30 hover:bg-accent/20 transition-all"
+            title="ИИ-подбор Эксперта"
+          >
+            <Wand2 size={18} className="text-accent" />
+          </button>
           <button 
             onClick={() => setSoundEnabled(!soundEnabled)}
             className="p-2 rounded-full bg-foreground/5 border border-foreground/10 hover:bg-foreground/10 transition-all"

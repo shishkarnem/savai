@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Rivets from './Rivets';
+ import { Users } from 'lucide-react';
 
 interface IntroStepProps {
   inputValue?: string;
@@ -78,6 +79,24 @@ export const IntroStep: React.FC<IntroStepProps> = ({
             </button>
             <p className="text-xs md:text-sm text-center opacity-50 italic">
               Индивидуальный расчёт по ТЗ • Любые сотрудники и отделы
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 py-2">
+            <div className="h-px bg-foreground opacity-10 flex-1"></div>
+            <span className="text-accent text-[10px] md:text-sm italic opacity-40 uppercase tracking-widest">бесплатно</span>
+            <div className="h-px bg-foreground opacity-10 flex-1"></div>
+          </div>
+
+          <div className="space-y-2">
+            <button 
+              onClick={() => navigate('/experts')}
+              className="w-full bg-gradient-to-r from-accent/20 to-primary/20 border border-accent/30 text-accent py-3 text-base md:text-lg hover:from-accent/30 hover:to-primary/30 transition-all flex items-center justify-center gap-2 rounded-xl backdrop-blur-sm"
+            >
+              <Users className="w-5 h-5" /> Бесплатный аудит Экспертом
+            </button>
+            <p className="text-xs md:text-sm text-center opacity-50 italic">
+              Консультация с экспертом • Без обязательств
             </p>
           </div>
         </div>

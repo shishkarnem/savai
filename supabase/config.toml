@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.sync-cities]
 verify_jwt = false
+ 
+ [functions.ai-match-experts]
+ verify_jwt = false
+ 
+ [functions.ai-recommend-tariff]
+ verify_jwt = false
+ 
+ [functions.notify-tariff-selection]
+ verify_jwt = false

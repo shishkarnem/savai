@@ -343,6 +343,81 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_templates: {
+        Row: {
+          created_at: string
+          fields: Json
+          footer_text: string | null
+          header_text: string | null
+          id: string
+          is_active: boolean
+          media: Json
+          name: string
+          type: string
+          updated_at: string
+          use_media_caption: boolean
+        }
+        Insert: {
+          created_at?: string
+          fields?: Json
+          footer_text?: string | null
+          header_text?: string | null
+          id?: string
+          is_active?: boolean
+          media?: Json
+          name: string
+          type?: string
+          updated_at?: string
+          use_media_caption?: boolean
+        }
+        Update: {
+          created_at?: string
+          fields?: Json
+          footer_text?: string | null
+          header_text?: string | null
+          id?: string
+          is_active?: boolean
+          media?: Json
+          name?: string
+          type?: string
+          updated_at?: string
+          use_media_caption?: boolean
+        }
+        Relationships: []
+      }
+      tariff_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: number | null
+          notification_sent: boolean
+          payment_type: string | null
+          tariff_name: string
+          telegram_id: number | null
+          telegram_username: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id?: number | null
+          notification_sent?: boolean
+          payment_type?: string | null
+          tariff_name: string
+          telegram_id?: number | null
+          telegram_username?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: number | null
+          notification_sent?: boolean
+          payment_type?: string | null
+          tariff_name?: string
+          telegram_id?: number | null
+          telegram_username?: string | null
+        }
+        Relationships: []
+      }
       telegram_profiles: {
         Row: {
           created_at: string
@@ -373,6 +448,33 @@ export type Database = {
           telegram_id?: number
           updated_at?: string
           username?: string | null
+        }
+        Relationships: []
+      }
+      user_calculations: {
+        Row: {
+          calculation_type: string
+          created_at: string
+          data: Json
+          id: string
+          telegram_id: number
+          updated_at: string
+        }
+        Insert: {
+          calculation_type: string
+          created_at?: string
+          data?: Json
+          id?: string
+          telegram_id: number
+          updated_at?: string
+        }
+        Update: {
+          calculation_type?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          telegram_id?: number
+          updated_at?: string
         }
         Relationships: []
       }

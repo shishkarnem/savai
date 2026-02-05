@@ -1,0 +1,219 @@
+ import React, { useState } from 'react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import { HelpCircle, Loader2, X, ChevronRight, Sparkles } from 'lucide-react';
+ import { Button } from '@/components/ui/button';
+ import { supabase } from '@/integrations/supabase/client';
+ import { useToast } from '@/hooks/use-toast';
+ import { useNavigate } from 'react-router-dom';
+ import { PlanLevel } from '@/types';
+ 
+ interface Question {
+   id: string;
+   question: string;
+   options: string[];
+ }
+ 
+ const QUESTIONS: Question[] = [
+   {
+     id: 'business_size',
+     question: 'Какой размер вашего бизнеса?',
+     options: ['Малый (до 10 сотрудников)', 'Средний (10-50 сотрудников)', 'Крупный (50+ сотрудников)'],
+   },
+   {
+     id: 'sales_volume',
+     question: 'Сколько клиентов обрабатываете в день?',
+     options: ['До 20 обращений', '20-100 обращений', '100+ обращений'],
+   },
+   {
+     id: 'main_goal',
+     question: 'Какая основная цель внедрения ИИ?',
+     options: ['Автоматизация рутины', 'Увеличение продаж', 'Улучшение сервиса', 'Снижение затрат'],
+   },
+ ];
+ 
+ interface AITariffAdvisorProps {
+   isOpen: boolean;
+   onClose: () => void;
+ }
+ 
+ export const AITariffAdvisor: React.FC<AITariffAdvisorProps> = ({
+   isOpen,
+   onClose,
+ }) => {
+   const navigate = useNavigate();
+   const { toast } = useToast();
+   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+   const [answers, setAnswers] = useState<Record<string, string>>({});
+   const [isLoading, setIsLoading] = useState(false);
+   const [recommendation, setRecommendation] = useState<{
+     tariff: PlanLevel;
+     reason: string;
+   } | null>(null);
+ 
+   const handleAnswer = (answer: string) => {
+     const question = QUESTIONS[currentQuestionIdx];
+     const newAnswers = { ...answers, [question.id]: answer };
+     setAnswers(newAnswers);
+ 
+     if (currentQuestionIdx < QUESTIONS.length - 1) {
+       setCurrentQuestionIdx(prev => prev + 1);
+     } else {
+       // All questions answered, get AI recommendation
+       getRecommendation(newAnswers);
+     }
+   };
+ 
+   const getRecommendation = async (finalAnswers: Record<string, string>) => {
+     setIsLoading(true);
+     try {
+       const { data, error } = await supabase.functions.invoke('ai-recommend-tariff', {
+         body: { answers: finalAnswers },
+       });
+ 
+       if (error) throw error;
+ 
+       if (data.tariff) {
+         setRecommendation({
+           tariff: data.tariff,
+           reason: data.reason || 'Подходит для ваших задач',
+         });
+       }
+     } catch (error) {
+       console.error('Error getting recommendation:', error);
+       toast({
+         title: 'Ошибка',
+         description: 'Не удалось получить рекомендацию',
+         variant: 'destructive',
+       });
+     } finally {
+       setIsLoading(false);
+     }
+   };
+ 
+   const handleSelectTariff = () => {
+     if (recommendation) {
+       sessionStorage.setItem('sav-selected-plan', recommendation.tariff);
+       navigate(`/ai-seller/plan/${encodeURIComponent(recommendation.tariff)}`);
+       onClose();
+     }
+   };
+ 
+   const handleReset = () => {
+     setCurrentQuestionIdx(0);
+     setAnswers({});
+     setRecommendation(null);
+   };
+ 
+   if (!isOpen) return null;
+ 
+   const currentQuestion = QUESTIONS[currentQuestionIdx];
+ 
+   return (
+     <AnimatePresence>
+       <motion.div
+         initial={{ opacity: 0 }}
+         animate={{ opacity: 1 }}
+         exit={{ opacity: 0 }}
+         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+         onClick={onClose}
+       >
+         <motion.div
+           initial={{ scale: 0.9, opacity: 0 }}
+           animate={{ scale: 1, opacity: 1 }}
+           exit={{ scale: 0.9, opacity: 0 }}
+           className="glass-panel p-6 max-w-lg w-full relative"
+           onClick={e => e.stopPropagation()}
+         >
+           <button
+             onClick={onClose}
+             className="absolute top-4 right-4 text-foreground/60 hover:text-primary transition-colors"
+           >
+             <X size={20} />
+           </button>
+ 
+           <div className="flex items-center gap-3 mb-6">
+             <div className="p-2 rounded-lg bg-primary/20">
+               <HelpCircle className="w-6 h-6 text-primary" />
+             </div>
+             <div>
+               <h2 className="text-xl font-bold text-primary">Какой тариф мне подходит?</h2>
+               <p className="text-sm text-foreground/60">Ответьте на 3 вопроса</p>
+             </div>
+           </div>
+ 
+           {isLoading ? (
+             <div className="text-center py-12">
+               <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+               <p className="text-foreground/70">Анализирую ваши ответы...</p>
+             </div>
+           ) : recommendation ? (
+             <motion.div
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="space-y-4"
+             >
+               <div className="text-center mb-6">
+                 <Sparkles className="w-12 h-12 text-primary mx-auto mb-3" />
+                 <h3 className="text-2xl font-bold text-primary mb-2">
+                   {recommendation.tariff}
+                 </h3>
+                 <p className="text-foreground/70">{recommendation.reason}</p>
+               </div>
+               <Button
+                 onClick={handleSelectTariff}
+                 className="steampunk-button w-full py-3"
+               >
+                 Перейти к тарифу
+                 <ChevronRight className="w-4 h-4 ml-2" />
+               </Button>
+               <Button
+                 variant="outline"
+                 onClick={handleReset}
+                 className="w-full"
+               >
+                 Пройти заново
+               </Button>
+             </motion.div>
+           ) : (
+             <div className="space-y-4">
+               {/* Progress */}
+               <div className="flex gap-1 mb-4">
+                 {QUESTIONS.map((_, idx) => (
+                   <div
+                     key={idx}
+                     className={`h-1 flex-1 rounded-full transition-colors ${
+                       idx <= currentQuestionIdx ? 'bg-primary' : 'bg-foreground/10'
+                     }`}
+                   />
+                 ))}
+               </div>
+ 
+               <p className="text-xs text-foreground/50 mb-2">
+                 Вопрос {currentQuestionIdx + 1} из {QUESTIONS.length}
+               </p>
+ 
+               <h3 className="text-lg font-medium mb-4">{currentQuestion.question}</h3>
+ 
+               <div className="space-y-2">
+                 {currentQuestion.options.map((option, idx) => (
+                   <motion.button
+                     key={idx}
+                     initial={{ opacity: 0, x: -20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: idx * 0.1 }}
+                     onClick={() => handleAnswer(option)}
+                     className="w-full p-4 text-left rounded-lg border border-foreground/10 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                   >
+                     {option}
+                   </motion.button>
+                 ))}
+               </div>
+             </div>
+           )}
+         </motion.div>
+       </motion.div>
+     </AnimatePresence>
+   );
+ };
+ 
+ export default AITariffAdvisor;
