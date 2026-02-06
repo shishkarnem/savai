@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { classifyBusiness } from '@/services/geminiService';
@@ -6,6 +6,7 @@ import { BusinessInfo } from '@/types';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
@@ -17,14 +18,26 @@ const AISeller: React.FC = () => {
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { trackAction, saveSessionData } = useActionTracker('ai_seller');
+
+  useEffect(() => {
+    trackAction('visit_page', { page: '/ai-seller' });
+  }, []);
 
   const handleClassify = async () => {
     if (!inputValue.trim()) return;
     setIsLoading(true);
+    trackAction('classify_business', { page: '/ai-seller', value: inputValue.substring(0, 100) });
     try {
       const info = await classifyBusiness(inputValue);
-      // Store in sessionStorage for next step
       sessionStorage.setItem('sav-business-info', JSON.stringify(info));
+      await saveSessionData({
+        businessDescription: inputValue,
+        segment: info.segment,
+        category: info.category,
+        sphere: info.sphere,
+        step: 'classified',
+      } as any);
       navigate('/ai-seller/result');
     } catch (err) {
       console.error(err);

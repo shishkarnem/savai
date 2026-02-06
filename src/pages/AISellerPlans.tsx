@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlanData, PlanLevel } from '@/types';
@@ -10,6 +10,7 @@ import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import AITariffAdvisor from '@/components/AITariffAdvisor';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 type PaymentType = 'monthly' | 'onetime';
 
@@ -27,6 +28,8 @@ const AISellerPlans: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<PlanLevel | null>(null);
   const [paymentType, setPaymentType] = useState<PaymentType | null>(null);
   const [showTariffAdvisor, setShowTariffAdvisor] = useState(false);
+  const { trackAction } = useActionTracker('ai_seller');
+  const viewNotifiedRef = useRef(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('sav-plans');
@@ -35,12 +38,38 @@ const AISellerPlans: React.FC = () => {
     }
   }, []);
 
+  // Track page visit and send notification when plans are first shown
+  useEffect(() => {
+    trackAction('view_plans', { page: '/ai-seller/plans' });
+    
+    // Send notification about plan view (only once per session)
+    if (!viewNotifiedRef.current && telegramProfile) {
+      viewNotifiedRef.current = true;
+      supabase.functions.invoke('notify-tariff-selection', {
+        body: {
+          tariffName: 'Просмотр тарифов',
+          paymentType: 'view',
+          clientInfo: {
+            telegramId: telegramProfile.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile.username || null,
+            fullName: [telegramProfile.first_name, telegramProfile.last_name].filter(Boolean).join(' ') || null,
+          },
+          businessInfo: {
+            type: sessionStorage.getItem('sav-business-type'),
+            classification: sessionStorage.getItem('sav-classification-result'),
+          },
+        },
+      }).catch(err => console.error('View notification error:', err));
+    }
+  }, [telegramProfile]);
+
   const displayPlans = plans.length > 0 ? plans : FALLBACK_PLANS;
   const selectedPlanData = displayPlans.find(p => p.package === selectedPlan);
 
   const handlePlanClick = (plan: PlanLevel) => {
     setSelectedPlan(plan);
     setPaymentType(null);
+    trackAction('select_plan', { page: '/ai-seller/plans', value: plan });
   };
 
   const handlePaymentSelect = (type: PaymentType) => {
@@ -277,7 +306,7 @@ const AISellerPlans: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center p-3 md:p-8">
       <Header onLogoClick={() => navigate('/')} />
-      <AITariffAdvisor isOpen={showTariffAdvisor} onClose={() => setShowTariffAdvisor(false)} />
+      <AITariffAdvisor isOpen={showTariffAdvisor} onClose={() => setShowTariffAdvisor(false)} plans={displayPlans} />
       <main className="w-full max-w-4xl flex-grow">
         <motion.div
           variants={pageVariants}
