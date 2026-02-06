@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCRMAccess } from '@/hooks/useCRMAccess';
 import { AccessDenied } from '@/components/crm/AccessDenied';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -160,6 +161,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export const MESSAGE_CONSTRUCTOR_STORAGE_KEY = 'sav-crm-message-constructor';
 export const CHAT_CONSTRUCTOR_STORAGE_KEY = 'sav-crm-chat-constructor';
+export const TARIFF_CONSTRUCTOR_STORAGE_KEY = 'sav-crm-tariff-constructor';
 
 export interface MessageConstructorSettings {
   fields: MessageField[];
@@ -169,13 +171,81 @@ export interface MessageConstructorSettings {
   useMediaCaption: boolean;
 }
 
+// Load settings from DB first, fallback to localStorage
+async function loadSettingsFromDB(type: string): Promise<{ settings: MessageConstructorSettings | null; templateId: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('notification_templates')
+      .select('*')
+      .eq('type', type)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (!error && data) {
+      return {
+        templateId: data.id,
+        settings: {
+          fields: (data.fields as any) || [],
+          headerText: data.header_text || '',
+          footerText: data.footer_text || '',
+          media: (data.media as any) || [],
+          useMediaCaption: data.use_media_caption || false,
+        },
+      };
+    }
+  } catch (e) {
+    console.error('Error loading from DB:', e);
+  }
+  return { settings: null, templateId: null };
+}
+
+// Save settings to DB
+async function saveSettingsToDB(
+  type: string,
+  name: string,
+  settings: MessageConstructorSettings,
+  templateId: string | null
+): Promise<string | null> {
+  const templateData = {
+    name,
+    type,
+    header_text: settings.headerText,
+    footer_text: settings.footerText,
+    fields: settings.fields as any,
+    media: settings.media as any,
+    use_media_caption: settings.useMediaCaption,
+    is_active: true,
+  };
+
+  try {
+    if (templateId) {
+      const { error } = await supabase
+        .from('notification_templates')
+        .update(templateData)
+        .eq('id', templateId);
+      if (error) throw error;
+      return templateId;
+    } else {
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .insert(templateData)
+        .select('id')
+        .single();
+      if (error) throw error;
+      return data?.id || null;
+    }
+  } catch (e) {
+    console.error('Error saving to DB:', e);
+    return null;
+  }
+}
+
 // Export for use in other components
 export function getMessageConstructorSettings(): MessageConstructorSettings {
   const saved = localStorage.getItem(MESSAGE_CONSTRUCTOR_STORAGE_KEY);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      // Merge saved fields with defaults
       const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
         const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
         return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
@@ -238,6 +308,8 @@ const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
 
 interface MessageConstructorFormProps {
   storageKey: string;
+  dbType: string;
+  dbName: string;
   title: string;
   description: string;
   defaultHeaderText?: string;
@@ -245,6 +317,8 @@ interface MessageConstructorFormProps {
 
 export function MessageConstructorForm({ 
   storageKey, 
+  dbType,
+  dbName,
   title, 
   description,
   defaultHeaderText = ''
@@ -257,27 +331,46 @@ export function MessageConstructorForm({
   const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [useMediaCaption, setUseMediaCaption] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
-  // Load saved settings
+  // Load saved settings from DB first, fallback to localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
+    const load = async () => {
+      const { settings, templateId: dbId } = await loadSettingsFromDB(dbType);
+      if (settings && settings.fields?.length > 0) {
         const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
-          const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
-          return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
+          const savedField = settings.fields?.find((f: any) => f.key === defaultField.key);
+          return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: (savedField as any).customLabel, buttonText: savedField.buttonText } : defaultField;
         });
         setFields(mergedFields);
-        setHeaderText(parsed.headerText || defaultHeaderText);
-        setFooterText(parsed.footerText || '');
-        setMedia(parsed.media || []);
-        setUseMediaCaption(parsed.useMediaCaption || false);
-      } catch (e) {
-        console.error('Failed to parse settings:', e);
+        setHeaderText(settings.headerText || defaultHeaderText);
+        setFooterText(settings.footerText || '');
+        setMedia(settings.media || []);
+        setUseMediaCaption(settings.useMediaCaption || false);
+        setTemplateId(dbId);
+      } else {
+        // Fallback to localStorage
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
+              const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
+              return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
+            });
+            setFields(mergedFields);
+            setHeaderText(parsed.headerText || defaultHeaderText);
+            setFooterText(parsed.footerText || '');
+            setMedia(parsed.media || []);
+            setUseMediaCaption(parsed.useMediaCaption || false);
+          } catch (e) {
+            console.error('Failed to parse settings:', e);
+          }
+        }
       }
-    }
-  }, [storageKey, defaultHeaderText]);
+    };
+    load();
+  }, [storageKey, dbType, defaultHeaderText]);
 
   const toggleField = (key: string) => {
     setFields(prev => prev.map(f => 
@@ -315,19 +408,18 @@ export function MessageConstructorForm({
     setMedia(prev => prev.filter(m => m.id !== id));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify({
-        fields,
-        headerText,
-        footerText,
-        media,
-        useMediaCaption,
-      }));
+      const settings = { fields, headerText, footerText, media, useMediaCaption };
+      // Save to DB
+      const newId = await saveSettingsToDB(dbType, dbName, settings, templateId);
+      if (newId) setTemplateId(newId);
+      // Also save to localStorage as backup
+      localStorage.setItem(storageKey, JSON.stringify(settings));
       toast({
         title: 'Настройки сохранены',
-        description: 'Конфигурация сообщения обновлена',
+        description: 'Конфигурация сохранена в базу данных',
       });
     } catch (e) {
       toast({
@@ -693,9 +785,34 @@ export default function CRMMessageConstructor() {
           <CardContent>
             <MessageConstructorForm
               storageKey={MESSAGE_CONSTRUCTOR_STORAGE_KEY}
+              dbType="expert_selection"
+              dbName="Уведомления экспертам"
               title="Поля сообщения"
               description="Выберите какие данные клиента отправлять экспертам"
               defaultHeaderText="🔔 Новый выбор эксперта!"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Tariff notification constructor */}
+        <Card className="steampunk-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              Уведомления о тарифах
+            </CardTitle>
+            <CardDescription>
+              Настройка сообщений при просмотре и выборе тарифа ИИ-Продавца
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MessageConstructorForm
+              storageKey={TARIFF_CONSTRUCTOR_STORAGE_KEY}
+              dbType="tariff_selection"
+              dbName="Уведомления о тарифах"
+              title="Поля сообщения"
+              description="Выберите какие данные отправлять при выборе тарифа"
+              defaultHeaderText="📋 Новый выбор тарифа!"
             />
           </CardContent>
         </Card>
@@ -714,6 +831,8 @@ export default function CRMMessageConstructor() {
           <CardContent>
             <MessageConstructorForm
               storageKey={CHAT_CONSTRUCTOR_STORAGE_KEY}
+              dbType="chat_message"
+              dbName="Сообщения клиентам"
               title="Поля сообщения"
               description="Выберите какие данные подставлять в сообщение клиенту"
               defaultHeaderText=""

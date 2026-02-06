@@ -6,6 +6,7 @@ import { BusinessInfo } from '@/types';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
@@ -17,11 +18,17 @@ const AISellerResult: React.FC = () => {
   const navigate = useNavigate();
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { trackAction, saveSessionData } = useActionTracker('ai_seller');
 
   useEffect(() => {
     const stored = sessionStorage.getItem('sav-business-info');
     if (stored) {
-      setBusinessInfo(JSON.parse(stored));
+      const info = JSON.parse(stored);
+      setBusinessInfo(info);
+      trackAction('view_classification', { 
+        page: '/ai-seller/result', 
+        value: `${info.segment} / ${info.category} / ${info.sphere}` 
+      });
     } else {
       navigate('/ai-seller');
     }
@@ -30,6 +37,7 @@ const AISellerResult: React.FC = () => {
   const handleShowPrices = async () => {
     if (!businessInfo) return;
     setIsLoading(true);
+    trackAction('show_prices', { page: '/ai-seller/result' });
     try {
       const sheetPlans = await fetchPlansFromSheet({
         sphere: businessInfo.sphere,
@@ -37,6 +45,13 @@ const AISellerResult: React.FC = () => {
         category: businessInfo.category
       });
       sessionStorage.setItem('sav-plans', JSON.stringify(sheetPlans));
+      await saveSessionData({
+        segment: businessInfo.segment,
+        category: businessInfo.category,
+        sphere: businessInfo.sphere,
+        description: businessInfo.description,
+        step: 'plans_loaded',
+      } as any);
       navigate('/ai-seller/plans');
     } catch {
       navigate('/ai-seller/plans');
