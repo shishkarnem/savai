@@ -5,10 +5,14 @@ import { ChevronLeft, ChevronRight, Wrench, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const CalculatorStep6: React.FC = () => {
   const navigate = useNavigate();
   const [maintenance, setMaintenance] = useState('');
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step6' }); }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('sav-calculator-data');
@@ -23,6 +27,8 @@ const CalculatorStep6: React.FC = () => {
   const handleNext = () => {
     const saved = sessionStorage.getItem('sav-calculator-data');
     const data = saved ? JSON.parse(saved) : {};
+    trackAction('next_step', { page: '/calculator/step6', value: maintenance });
+    saveSessionData({ ...data, maintenance, step: 'step6' } as any);
     sessionStorage.setItem('sav-calculator-data', JSON.stringify({ ...data, maintenance }));
     navigate('/calculator/step7');
   };

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const DEPARTMENTS = [
   { value: 'sales', label: '🛒 Отдел продаж', description: 'ИИ заменит на всех этапах продаж, от общения с новыми теплыми лидами до закрытия сделки.' },
@@ -26,6 +27,9 @@ const pageVariants = {
 const CalculatorStep2: React.FC = () => {
   const navigate = useNavigate();
   const [department, setDepartment] = useState('');
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step2' }); }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('sav-calculator-data');
@@ -40,6 +44,8 @@ const CalculatorStep2: React.FC = () => {
   const handleNext = () => {
     const saved = sessionStorage.getItem('sav-calculator-data');
     const data = saved ? JSON.parse(saved) : {};
+    trackAction('next_step', { page: '/calculator/step2', value: department });
+    saveSessionData({ ...data, department, step: 'step2' } as any);
     sessionStorage.setItem('sav-calculator-data', JSON.stringify({ ...data, department }));
     navigate('/calculator/step3');
   };

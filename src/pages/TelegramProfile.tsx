@@ -179,8 +179,8 @@ const TelegramProfile: React.FC = () => {
     );
   }
 
-  // For non-public profiles, require Telegram WebApp
-  if (!isPublicProfile && (!isTelegramWebApp || !profile)) {
+  // For non-public profiles, require Telegram WebApp (but allow if profile is still loading)
+  if (!isPublicProfile && !isTelegramWebApp) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div

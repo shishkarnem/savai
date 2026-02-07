@@ -31,6 +31,19 @@ const AISellerPlans: React.FC = () => {
   const { trackAction } = useActionTracker('ai_seller');
   const viewNotifiedRef = useRef(false);
 
+  // Helper to get business info from sessionStorage
+  const getBusinessInfo = () => {
+    const stored = sessionStorage.getItem('sav-business-info');
+    if (!stored) return { type: null, classification: null };
+    try {
+      const info = JSON.parse(stored);
+      return {
+        type: `${info.segment} / ${info.category} / ${info.sphere}`,
+        classification: info.description || null,
+      };
+    } catch { return { type: null, classification: null }; }
+  };
+
   useEffect(() => {
     const stored = sessionStorage.getItem('sav-plans');
     if (stored) {
@@ -54,10 +67,7 @@ const AISellerPlans: React.FC = () => {
             telegramUsername: telegramProfile.username || null,
             fullName: [telegramProfile.first_name, telegramProfile.last_name].filter(Boolean).join(' ') || null,
           },
-          businessInfo: {
-            type: sessionStorage.getItem('sav-business-type'),
-            classification: sessionStorage.getItem('sav-classification-result'),
-          },
+          businessInfo: getBusinessInfo(),
         },
       }).catch(err => console.error('View notification error:', err));
     }
@@ -92,10 +102,7 @@ const AISellerPlans: React.FC = () => {
               telegramUsername: telegramProfile?.username || null,
               fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
             },
-            businessInfo: {
-              type: sessionStorage.getItem('sav-business-type'),
-              classification: sessionStorage.getItem('sav-classification-result'),
-            },
+            businessInfo: getBusinessInfo(),
           },
         });
       } catch (error) {
