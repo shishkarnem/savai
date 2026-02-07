@@ -216,7 +216,6 @@ const ExpertSelection: React.FC = () => {
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
         },
-        },
       });
       
       if (response.error) {
@@ -386,7 +385,6 @@ const ExpertSelection: React.FC = () => {
           aiSellerInfo: fromAISeller ? aiSellerData : undefined,
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
-          },
         },
       });
       
