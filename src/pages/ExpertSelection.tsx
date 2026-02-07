@@ -184,17 +184,17 @@ const ExpertSelection: React.FC = () => {
 
   // Send notification when expert is selected
   const sendExpertNotification = useCallback(async (expert: Expert) => {
+    const storedBizInfo = sessionStorage.getItem('sav-business-info');
+    const bizInfoParsed = storedBizInfo ? JSON.parse(storedBizInfo) : null;
     const aiSellerData: AISellerData = {
-      businessType: sessionStorage.getItem('sav-business-type') || undefined,
-      classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
+      businessType: bizInfoParsed ? `${bizInfoParsed.segment} / ${bizInfoParsed.category} / ${bizInfoParsed.sphere}` : undefined,
+      classificationResult: bizInfoParsed?.description || undefined,
       selectedPlan: sessionStorage.getItem('sav-selected-plan') || state?.selectedPlan || undefined,
       presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
     };
     
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
-    
-    const messageSettings = getMessageConstructorSettings();
     
     try {
       const response = await supabase.functions.invoke('notify-expert-selection', {
@@ -215,7 +215,7 @@ const ExpertSelection: React.FC = () => {
           aiSellerInfo: fromAISeller ? aiSellerData : undefined,
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
-          messageSettings: messageSettings,
+        },
         },
       });
       
@@ -355,17 +355,17 @@ const ExpertSelection: React.FC = () => {
       spheres: selectedExpert.spheres,
     }));
     
+    const storedBizInfo2 = sessionStorage.getItem('sav-business-info');
+    const bizInfoParsed2 = storedBizInfo2 ? JSON.parse(storedBizInfo2) : null;
     const aiSellerData: AISellerData = {
-      businessType: sessionStorage.getItem('sav-business-type') || undefined,
-      classificationResult: sessionStorage.getItem('sav-classification-result') || undefined,
+      businessType: bizInfoParsed2 ? `${bizInfoParsed2.segment} / ${bizInfoParsed2.category} / ${bizInfoParsed2.sphere}` : undefined,
+      classificationResult: bizInfoParsed2?.description || undefined,
       selectedPlan: sessionStorage.getItem('sav-selected-plan') || state?.selectedPlan || undefined,
       presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
     };
     
     const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
-    
-    const messageSettings = getMessageConstructorSettings();
     
     try {
       const response = await supabase.functions.invoke('notify-expert-selection', {
@@ -386,7 +386,7 @@ const ExpertSelection: React.FC = () => {
           aiSellerInfo: fromAISeller ? aiSellerData : undefined,
           calculatorInfo: calculatorData.company ? calculatorData : undefined,
           source: fromAISeller ? 'ai-seller' : 'calculator',
-          messageSettings: messageSettings,
+          },
         },
       });
       

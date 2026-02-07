@@ -6,10 +6,14 @@ import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const CalculatorStep4: React.FC = () => {
   const navigate = useNavigate();
   const [averageSalary, setAverageSalary] = useState('');
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step4' }); }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('sav-calculator-data');
@@ -29,6 +33,8 @@ const CalculatorStep4: React.FC = () => {
   const handleNext = () => {
     const saved = sessionStorage.getItem('sav-calculator-data');
     const data = saved ? JSON.parse(saved) : {};
+    trackAction('next_step', { page: '/calculator/step4', value: averageSalary });
+    saveSessionData({ ...data, averageSalary, step: 'step4' } as any);
     sessionStorage.setItem('sav-calculator-data', JSON.stringify({ ...data, averageSalary }));
     navigate('/calculator/step5');
   };

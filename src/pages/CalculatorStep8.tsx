@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const DEPARTMENT_LABELS: Record<string, string> = {
   sales: 'Отдел продаж',
@@ -45,6 +46,9 @@ const CalculatorStep8: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [formData, setFormData] = useState<FormData | null>(null);
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step8' }); }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('sav-calculator-data');
@@ -67,6 +71,8 @@ const CalculatorStep8: React.FC = () => {
   const submitForm = async () => {
     if (!formData) return;
     
+    trackAction('submit_calculator', { page: '/calculator/step8', value: promoCode || 'no-promo' });
+    saveSessionData({ ...formData, promoCode, step: 'submitted' } as any);
     setIsSubmitting(true);
     
     const chatId = telegramProfile?.telegram_id 

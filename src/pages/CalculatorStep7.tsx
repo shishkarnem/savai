@@ -7,10 +7,14 @@ import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Expert } from '@/components/ExpertCard';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const CalculatorStep7: React.FC = () => {
   const navigate = useNavigate();
   const [selectedExpertId, setSelectedExpertId] = useState('');
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step7' }); }, []);
   const [experts, setExperts] = useState<Expert[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,6 +51,8 @@ const CalculatorStep7: React.FC = () => {
     const expertName = selectedExpert 
       ? `${selectedExpert.greeting || ''}${selectedExpert.pseudonym || ''}`
       : '';
+    trackAction('next_step', { page: '/calculator/step7', value: expertName });
+    saveSessionData({ ...data, selectedExpertId, selectedExpert: expertName, step: 'step7' } as any);
     sessionStorage.setItem('sav-calculator-data', JSON.stringify({ 
       ...data, 
       selectedExpertId,

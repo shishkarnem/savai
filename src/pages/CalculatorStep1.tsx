@@ -10,6 +10,7 @@ import { CitySearchSelect } from '@/components/CitySearchSelect';
 import { useCities, syncCities } from '@/hooks/useCities';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useActionTracker } from '@/hooks/useActionTracker';
 
 const FALLBACK_CITIES = [
   'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
@@ -28,6 +29,7 @@ const CalculatorStep1: React.FC = () => {
   const { data: citiesData, isLoading: citiesLoading, refetch: refetchCities } = useCities();
   const { profile: telegramProfile } = useTelegramAuth();
   const [isSyncingCities, setIsSyncingCities] = useState(false);
+  const { trackAction, saveSessionData } = useActionTracker('calculator');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -36,6 +38,8 @@ const CalculatorStep1: React.FC = () => {
     city: '',
     avgSalary: null as number | null,
   });
+
+  useEffect(() => { trackAction('visit_page', { page: '/calculator/step1' }); }, []);
 
   // Load from sessionStorage on mount
   useEffect(() => {
@@ -91,7 +95,8 @@ const CalculatorStep1: React.FC = () => {
   const canProceed = formData.fullName && formData.company && formData.product && formData.city;
 
   const handleNext = () => {
-    // Save to session storage
+    trackAction('next_step', { page: '/calculator/step1', value: formData.company });
+    saveSessionData({ ...formData, step: 'step1' } as any);
     sessionStorage.setItem('sav-calculator-data', JSON.stringify(formData));
     navigate('/calculator/step2');
   };

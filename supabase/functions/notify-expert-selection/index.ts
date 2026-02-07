@@ -1,27 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Text formatting types matching frontend
 type TextFormat = 'normal' | 'bold' | 'italic' | 'code' | 'mono' | 'quote' | 'link' | 'inline_button' | 'inline_button_link';
-
-interface MessageField {
-  key: string;
-  label: string;
-  enabled: boolean;
-  format: TextFormat;
-  category: string;
-  buttonText?: string;
-}
-
-interface MessageConstructorSettings {
-  fields: MessageField[];
-  headerText: string;
-  footerText: string;
-}
 
 interface NotifyExpertSelectionRequest {
   expert: {
@@ -54,13 +39,11 @@ interface NotifyExpertSelectionRequest {
     maintenance: string | null;
   };
   source: 'ai-seller' | 'calculator';
-  messageSettings?: MessageConstructorSettings;
+  messageSettings?: any; // legacy, now loaded from DB
 }
 
-// Format value according to format type
 function formatValue(format: TextFormat, value: string, buttonText?: string): string {
   if (!value || value === 'null' || value === 'undefined') return '';
-  
   switch (format) {
     case 'bold': return `<b>${value}</b>`;
     case 'italic': return `<i>${value}</i>`;
@@ -68,21 +51,19 @@ function formatValue(format: TextFormat, value: string, buttonText?: string): st
     case 'mono': return `<pre>${value}</pre>`;
     case 'quote': return `<blockquote>${value}</blockquote>`;
     case 'link': return `<a href="${value}">${value}</a>`;
-    case 'inline_button': return value; // handled separately
-    case 'inline_button_link': return value; // handled separately
+    case 'inline_button': return value;
+    case 'inline_button_link': return value;
     default: return value;
   }
 }
 
-// Get value from data sources by field key
 function getFieldValue(
-  key: string, 
+  key: string,
   clientInfo: NotifyExpertSelectionRequest['clientInfo'],
   calculatorInfo: NotifyExpertSelectionRequest['calculatorInfo'],
   aiSellerInfo: NotifyExpertSelectionRequest['aiSellerInfo'],
   expertInfo: NotifyExpertSelectionRequest['expert']
 ): string | null {
-  // Build telegram link
   let telegramLink = "";
   if (clientInfo.telegramUsername) {
     telegramLink = `https://t.me/${clientInfo.telegramUsername.replace('@', '')}`;
@@ -90,61 +71,33 @@ function getFieldValue(
     telegramLink = `tg://user?id=${clientInfo.telegramId}`;
   }
 
-  // Map keys to values
   const valueMap: Record<string, string | null> = {
-    // Client info
     full_name: clientInfo.fullName || [clientInfo.firstName, clientInfo.lastName].filter(Boolean).join(' ') || null,
     telegram_link: telegramLink || null,
     telegram_id: clientInfo.telegramId,
     telegram_client: clientInfo.telegramUsername,
     city: calculatorInfo?.city || null,
-    
-    // Project info
     project: null,
-    project_code: null,
     product: calculatorInfo?.product || null,
     department: calculatorInfo?.department || null,
-    department_text: null,
     employees_count: calculatorInfo?.employeeCount || null,
     functionality: calculatorInfo?.functionality || null,
-    service: null,
-    service_type: null,
-    kp_text: null,
-    software_text: null,
-    
-    // Finance
     sav_cost: null,
     tariff: aiSellerInfo?.selectedPlan || null,
     avg_salary: calculatorInfo?.averageSalary || null,
-    region_salary: null,
-    real_salary: null,
-    ai_employee_cost: null,
-    ai_tokens_price: null,
-    service_price: null,
-    software_price: null,
-    payback: null,
-    refund_amount: null,
-    
-    // Expert
     selected_expert: `${expertInfo.greeting || ''}${expertInfo.pseudonym || ''}`,
     expert_name: expertInfo.pseudonym,
     expert_pseudonym: expertInfo.pseudonym,
-    
-    // AI Seller specific
     business_type: aiSellerInfo?.businessType || null,
     classification_result: aiSellerInfo?.classificationResult || null,
-    presentation_text: aiSellerInfo?.presentationText || null,
-    
-    // Calculator specific
     company: calculatorInfo?.company || null,
     maintenance: calculatorInfo?.maintenance || null,
   };
-  
+
   return valueMap[key] || null;
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -152,19 +105,13 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TELEGRAM_EXPERT_CHAT_ID = Deno.env.get("TELEGRAM_EXPERT_CHAT_ID");
-    
-    if (!TELEGRAM_BOT_TOKEN) {
-      console.error("TELEGRAM_BOT_TOKEN not configured");
-      return new Response(
-        JSON.stringify({ error: "Telegram bot token not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!TELEGRAM_EXPERT_CHAT_ID) {
-      console.error("TELEGRAM_EXPERT_CHAT_ID not configured");
+    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_EXPERT_CHAT_ID) {
+      console.error("Telegram credentials not configured");
       return new Response(
-        JSON.stringify({ error: "Expert chat ID not configured" }),
+        JSON.stringify({ error: "Telegram credentials not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -172,20 +119,36 @@ const handler = async (req: Request): Promise<Response> => {
     const data: NotifyExpertSelectionRequest = await req.json();
     console.log("Received expert selection notification:", JSON.stringify(data));
 
-    const { expert, clientInfo, aiSellerInfo, calculatorInfo, source, messageSettings } = data;
+    const { expert, clientInfo, aiSellerInfo, calculatorInfo, source } = data;
 
-    // Build message based on constructor settings
+    // Try to load notification template from DB
+    let template: any = null;
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: templateData } = await supabase
+        .from("notification_templates")
+        .select("*")
+        .eq("type", "expert_selection")
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (templateData) {
+        template = templateData;
+        console.log("Using DB template:", templateData.name);
+      }
+    }
+
     let message = '';
     const inlineButtons: Array<{ text: string; url?: string; callback_data?: string }> = [];
 
-    if (messageSettings && messageSettings.fields) {
-      // Use message constructor settings
-      if (messageSettings.headerText) {
-        message += messageSettings.headerText + '\n\n';
+    if (template && template.fields) {
+      // Use template from DB
+      const fields = template.fields as any[];
+
+      if (template.header_text) {
+        message += template.header_text + '\n\n';
       }
 
-      // Group enabled fields by category
-      const categories = ['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'];
       const categoryLabels: Record<string, string> = {
         client: '👤 Клиент',
         project: '📂 Проект',
@@ -197,28 +160,21 @@ const handler = async (req: Request): Promise<Response> => {
         other: '📌 Другое',
       };
 
+      const categories = ['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'];
+
       for (const category of categories) {
-        const categoryFields = messageSettings.fields.filter(f => f.enabled && f.category === category);
+        const categoryFields = fields.filter((f: any) => f.enabled && f.category === category);
         if (categoryFields.length === 0) continue;
 
         const fieldLines: string[] = [];
-        
+
         for (const field of categoryFields) {
           const value = getFieldValue(field.key, clientInfo, calculatorInfo, aiSellerInfo, expert);
           if (!value) continue;
 
-          // Handle inline buttons separately
           if (field.format === 'inline_button' || field.format === 'inline_button_link') {
             if (field.format === 'inline_button_link' && value.startsWith('http')) {
-              inlineButtons.push({
-                text: field.buttonText || field.label,
-                url: value,
-              });
-            } else {
-              inlineButtons.push({
-                text: field.buttonText || field.label,
-                callback_data: field.key,
-              });
+              inlineButtons.push({ text: field.buttonText || field.label, url: value });
             }
             continue;
           }
@@ -235,17 +191,16 @@ const handler = async (req: Request): Promise<Response> => {
         }
       }
 
-      if (messageSettings.footerText) {
-        message += messageSettings.footerText;
+      if (template.footer_text) {
+        message += template.footer_text;
       }
     } else {
-      // Default message format (fallback)
+      // Default message format (fallback when no DB template)
       const expertName = `${expert.greeting || ''}${expert.pseudonym || 'Неизвестный'}`;
-      const clientName = clientInfo.fullName || 
-        [clientInfo.firstName, clientInfo.lastName].filter(Boolean).join(' ') || 
+      const clientName = clientInfo.fullName ||
+        [clientInfo.firstName, clientInfo.lastName].filter(Boolean).join(' ') ||
         'Клиент';
 
-      // Build Telegram link
       let telegramLink = "";
       if (clientInfo.telegramUsername) {
         telegramLink = `https://t.me/${clientInfo.telegramUsername.replace('@', '')}`;
@@ -255,50 +210,35 @@ const handler = async (req: Request): Promise<Response> => {
 
       message = `🎯 <b>Новый выбор эксперта!</b>\n\n`;
       message += `👤 <b>Клиент:</b> ${clientName}\n`;
-      
+
       if (telegramLink) {
         message += `📱 <b>Telegram:</b> <a href="${telegramLink}">${clientInfo.telegramUsername || clientInfo.telegramId}</a>\n`;
       }
-      
+
       message += `🎓 <b>Эксперт:</b> ${expertName}\n`;
       message += `📂 <b>Источник:</b> ${source === 'ai-seller' ? 'ИИ-Продавец' : 'Калькулятор'}\n\n`;
 
       if (source === 'ai-seller' && aiSellerInfo) {
-        message += `<b>═══ Данные ИИ-Продавца ═══</b>\n`;
         if (aiSellerInfo.businessType) message += `🏢 Бизнес: ${aiSellerInfo.businessType}\n`;
         if (aiSellerInfo.classificationResult) message += `📊 Классификация: ${aiSellerInfo.classificationResult}\n`;
         if (aiSellerInfo.selectedPlan) message += `📋 Тариф: ${aiSellerInfo.selectedPlan}\n`;
-        if (aiSellerInfo.presentationText) {
-          const shortPresentation = aiSellerInfo.presentationText.slice(0, 500);
-          message += `\n<b>Презентация:</b>\n<i>${shortPresentation}${aiSellerInfo.presentationText.length > 500 ? '...' : ''}</i>\n`;
-        }
       }
 
       if (source === 'calculator' && calculatorInfo) {
-        message += `<b>═══ Данные Калькулятора ═══</b>\n`;
         if (calculatorInfo.company) message += `🏢 Компания: ${calculatorInfo.company}\n`;
         if (calculatorInfo.product) message += `📦 Продукт: ${calculatorInfo.product}\n`;
         if (calculatorInfo.city) message += `🌆 Город: ${calculatorInfo.city}\n`;
-        if (calculatorInfo.department) message += `📂 Отдел: ${calculatorInfo.department}\n`;
         if (calculatorInfo.employeeCount) message += `👥 Сотрудников: ${calculatorInfo.employeeCount}\n`;
         if (calculatorInfo.averageSalary) message += `💰 Средняя ЗП: ${calculatorInfo.averageSalary}₽\n`;
-        if (calculatorInfo.maintenance) message += `🔧 Обслуживание: ${calculatorInfo.maintenance}\n`;
-        if (calculatorInfo.functionality) {
-          const shortFunc = calculatorInfo.functionality.slice(0, 300);
-          message += `\n<b>ТЗ:</b>\n<i>${shortFunc}${calculatorInfo.functionality.length > 300 ? '...' : ''}</i>\n`;
-        }
       }
 
-      // Add direct contact info at the bottom
       if (telegramLink) {
         message += `\n<b>💬 Связаться:</b> <a href="${telegramLink}">Открыть чат</a>`;
       }
     }
 
-    console.log("Sending message to expert chat:", TELEGRAM_EXPERT_CHAT_ID);
-    console.log("Message length:", message.length);
+    console.log("Sending message to expert chat, length:", message.length);
 
-    // Build request body
     const requestBody: Record<string, unknown> = {
       chat_id: TELEGRAM_EXPERT_CHAT_ID,
       text: message,
@@ -306,16 +246,13 @@ const handler = async (req: Request): Promise<Response> => {
       disable_web_page_preview: true,
     };
 
-    // Add inline keyboard if there are buttons
     if (inlineButtons.length > 0) {
       requestBody.reply_markup = {
         inline_keyboard: inlineButtons.map(btn => [btn]),
       };
     }
 
-    // Send message via Telegram Bot API
     const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    
     const telegramResponse = await fetch(telegramUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -326,21 +263,14 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Telegram API response:", JSON.stringify(telegramResult));
 
     if (telegramResult.ok) {
-      console.log("Expert notification sent successfully");
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          messageId: telegramResult.result.message_id,
-        }),
+        JSON.stringify({ success: true, messageId: telegramResult.result.message_id }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
       console.error("Telegram API error:", telegramResult.description);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to send expert notification", 
-          details: telegramResult.description,
-        }),
+        JSON.stringify({ error: "Failed to send", details: telegramResult.description }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
