@@ -35,7 +35,7 @@ const AISellerPlans: React.FC = () => {
   const getBusinessInfo = () => {
     const stored = sessionStorage.getItem('sav-business-info');
     const businessDescription = sessionStorage.getItem('sav-business-description');
-    if (!stored) return { type: null, classification: null, businessDescription: null };
+    if (!stored) return { type: null, classification: null, businessDescription: businessDescription || null };
     try {
       const info = JSON.parse(stored);
       return {
@@ -43,7 +43,26 @@ const AISellerPlans: React.FC = () => {
         classification: info.description || null,
         businessDescription: businessDescription || info.description || null,
       };
-    } catch { return { type: null, classification: null, businessDescription: null }; }
+    } catch { return { type: null, classification: null, businessDescription: businessDescription || null }; }
+  };
+
+  const sendNotification = async (action: string, payType: string = 'view') => {
+    try {
+      await supabase.functions.invoke('notify-tariff-selection', {
+        body: {
+          tariffName: action,
+          paymentType: payType,
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+          },
+          businessInfo: getBusinessInfo(),
+        },
+      });
+    } catch (err) {
+      console.error('Notification error:', err);
+    }
   };
 
   useEffect(() => {
@@ -60,18 +79,7 @@ const AISellerPlans: React.FC = () => {
     // Send notification about plan view (only once per session)
     if (!viewNotifiedRef.current && telegramProfile) {
       viewNotifiedRef.current = true;
-      supabase.functions.invoke('notify-tariff-selection', {
-        body: {
-          tariffName: 'Просмотр тарифов',
-          paymentType: 'view',
-          clientInfo: {
-            telegramId: telegramProfile.telegram_id ? String(telegramProfile.telegram_id) : null,
-            telegramUsername: telegramProfile.username || null,
-            fullName: [telegramProfile.first_name, telegramProfile.last_name].filter(Boolean).join(' ') || null,
-          },
-          businessInfo: getBusinessInfo(),
-        },
-      }).catch(err => console.error('View notification error:', err));
+      sendNotification('Просмотр тарифов');
     }
   }, [telegramProfile]);
 
@@ -82,6 +90,9 @@ const AISellerPlans: React.FC = () => {
     setSelectedPlan(plan);
     setPaymentType(null);
     trackAction('select_plan', { page: '/ai-seller/plans', value: plan });
+    
+    // Send notification when plan card is clicked ("Изучить чертеж" on card)
+    sendNotification(`Изучить чертеж: ${plan}`);
   };
 
   const handlePaymentSelect = (type: PaymentType) => {
@@ -93,23 +104,9 @@ const AISellerPlans: React.FC = () => {
       sessionStorage.setItem('sav-selected-plan', selectedPlan);
       sessionStorage.setItem('sav-payment-type', paymentType);
 
-      // Send notification
-      try {
-        await supabase.functions.invoke('notify-tariff-selection', {
-          body: {
-            tariffName: selectedPlan,
-            paymentType,
-            clientInfo: {
-              telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
-              telegramUsername: telegramProfile?.username || null,
-              fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
-            },
-            businessInfo: getBusinessInfo(),
-          },
-        });
-      } catch (error) {
-        console.error('Error sending tariff notification:', error);
-      }
+      // Send notification with payment type
+      const payLabel = paymentType === 'monthly' ? 'Ежемесячный' : 'Единоразовый';
+      await sendNotification(`Изучить чертеж: ${selectedPlan} (${payLabel})`, paymentType);
 
       navigate(`/ai-seller/plan/${encodeURIComponent(selectedPlan)}`);
     }

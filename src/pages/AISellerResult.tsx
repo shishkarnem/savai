@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchPlansFromSheet } from '@/services/sheetService';
@@ -7,6 +7,8 @@ import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import ProcessingLoader from '@/components/ProcessingLoader';
 import { useActionTracker } from '@/hooks/useActionTracker';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
@@ -19,6 +21,8 @@ const AISellerResult: React.FC = () => {
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { trackAction, saveSessionData } = useActionTracker('ai_seller');
+  const { profile: telegramProfile } = useTelegramAuth();
+  const classifyNotifiedRef = useRef(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('sav-business-info');
@@ -34,10 +38,49 @@ const AISellerResult: React.FC = () => {
     }
   }, [navigate]);
 
+  const sendNotification = async (action: string) => {
+    const businessDescription = sessionStorage.getItem('sav-business-description') || '';
+    const stored = sessionStorage.getItem('sav-business-info');
+    let bizType = null;
+    let classification = null;
+    if (stored) {
+      try {
+        const info = JSON.parse(stored);
+        bizType = `${info.segment} / ${info.category} / ${info.sphere}`;
+        classification = info.description || null;
+      } catch {}
+    }
+
+    try {
+      await supabase.functions.invoke('notify-tariff-selection', {
+        body: {
+          tariffName: action,
+          paymentType: 'view',
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+          },
+          businessInfo: {
+            type: bizType,
+            classification,
+            businessDescription,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Notification error:', err);
+    }
+  };
+
   const handleShowPrices = async () => {
     if (!businessInfo) return;
     setIsLoading(true);
     trackAction('show_prices', { page: '/ai-seller/result' });
+    
+    // Send notification about showing tariffs
+    sendNotification('Показать тарифы');
+    
     try {
       const sheetPlans = await fetchPlansFromSheet({
         sphere: businessInfo.sphere,

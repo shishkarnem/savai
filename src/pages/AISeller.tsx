@@ -7,6 +7,8 @@ import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import ProcessingLoader from '@/components/ProcessingLoader';
 import { useActionTracker } from '@/hooks/useActionTracker';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const pageVariants = {
   initial: { opacity: 0, y: 20, filter: 'blur(4px)' },
@@ -19,19 +21,46 @@ const AISeller: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { trackAction, saveSessionData } = useActionTracker('ai_seller');
+  const { profile: telegramProfile } = useTelegramAuth();
 
   useEffect(() => {
     trackAction('visit_page', { page: '/ai-seller' });
   }, []);
 
+  const sendNotification = async (action: string, businessDescription: string, businessInfo?: BusinessInfo) => {
+    try {
+      await supabase.functions.invoke('notify-tariff-selection', {
+        body: {
+          tariffName: action,
+          paymentType: 'view',
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+          },
+          businessInfo: {
+            type: businessInfo ? `${businessInfo.segment} / ${businessInfo.category} / ${businessInfo.sphere}` : null,
+            classification: businessInfo?.description || null,
+            businessDescription: businessDescription || null,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Notification error:', err);
+    }
+  };
+
   const handleClassify = async () => {
     if (!inputValue.trim()) return;
     setIsLoading(true);
     trackAction('classify_business', { page: '/ai-seller', value: inputValue.substring(0, 100) });
+    
+    // Send notification about classification action
+    sendNotification('Классифицировать', inputValue);
+    
     try {
       const info = await classifyBusiness(inputValue);
       sessionStorage.setItem('sav-business-info', JSON.stringify(info));
-      // Store the raw business description separately for notifications
       sessionStorage.setItem('sav-business-description', inputValue);
       await saveSessionData({
         businessDescription: inputValue,
