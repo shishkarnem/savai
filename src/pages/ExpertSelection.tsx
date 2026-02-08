@@ -13,6 +13,7 @@ import { useImagePreloader } from '@/hooks/useImagePreloader';
 import { useViewedExperts } from '@/hooks/useViewedExperts';
 import { Skeleton } from '@/components/ui/skeleton';
 import AIExpertMatcher from '@/components/AIExpertMatcher';
+import AuditInfoModal from '@/components/AuditInfoModal';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -63,7 +64,8 @@ const ExpertSelection: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAIMatcher, setShowAIMatcher] = useState(false);
-  
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [lastSelectedExpertName, setLastSelectedExpertName] = useState('');
   // Viewed experts persistence
   const { markAsViewed, isViewed, clearViewed } = useViewedExperts();
   
@@ -268,6 +270,9 @@ const ExpertSelection: React.FC = () => {
           return [...prev, currentExpert];
         });
         sendExpertNotification(currentExpert);
+        const expertName = `${currentExpert.greeting || ''}${currentExpert.pseudonym || ''}`;
+        setLastSelectedExpertName(expertName);
+        setShowAuditModal(true);
       }
       
       setCurrentIndex(prev => prev + 1);
@@ -442,6 +447,17 @@ const ExpertSelection: React.FC = () => {
         isOpen={showAIMatcher}
         onClose={() => setShowAIMatcher(false)}
         onSelectExpert={handleAIExpertSelect}
+      />
+
+      <AuditInfoModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        expertName={lastSelectedExpertName}
+        onGoToHistory={() => {
+          setShowAuditModal(false);
+          navigateToHistory();
+        }}
+        onGoToSwipes={() => setShowAuditModal(false)}
       />
 
       {/* Background gears */}

@@ -58,9 +58,12 @@ export type MediaType = 'photo' | 'video' | 'document' | 'album';
 export interface MediaAttachment {
   id: string;
   type: MediaType;
-  url: string; // URL or file_id
+  url: string;
   caption?: string;
 }
+
+// Inline button types
+import InlineButtonBuilder, { type InlineButtonRow } from '@/components/InlineButtonBuilder';
 
 // Define message fields that can be toggled
 export interface MessageField {
@@ -121,6 +124,8 @@ const ALL_CRM_FIELDS: MessageField[] = [
   { key: 'selected_expert', label: 'Выбранный эксперт', icon: <Bot className="w-4 h-4" />, enabled: true, format: 'bold', category: 'expert' },
   { key: 'expert_name', label: 'Имя эксперта', icon: <User className="w-4 h-4" />, enabled: false, format: 'normal', category: 'expert' },
   { key: 'expert_pseudonym', label: 'Псевдоним эксперта', icon: <User className="w-4 h-4" />, enabled: false, format: 'italic', category: 'expert' },
+  { key: 'business_type', label: 'Тип бизнеса', icon: <Briefcase className="w-4 h-4" />, enabled: false, format: 'normal', category: 'other' },
+  { key: 'classification_result', label: 'Результат классификации', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'italic', category: 'other' },
   
   // Dates
   { key: 'calculator_date', label: 'Дата калькулятора', icon: <Calendar className="w-4 h-4" />, enabled: true, format: 'normal', category: 'dates' },
@@ -169,6 +174,7 @@ export interface MessageConstructorSettings {
   footerText: string;
   media: MediaAttachment[];
   useMediaCaption: boolean;
+  inlineButtons?: InlineButtonRow[];
 }
 
 // Load settings from DB first, fallback to localStorage

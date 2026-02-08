@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
 import { useCRMAccess } from '@/hooks/useCRMAccess';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Rivets from '@/components/Rivets';
 import { 
   Users, MapPin, Briefcase, DollarSign, Calendar, 
-  MessageSquare, Bot, ExternalLink, Copy, Check, Loader2, History, Calculator, Sparkles
+  MessageSquare, Bot, ExternalLink, Copy, Check, Loader2, History, Calculator, Sparkles,
+  ChevronDown, Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -93,7 +94,7 @@ const TelegramProfile: React.FC = () => {
         .select('*')
         .eq('telegram_id', telegramIdNum)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
       
       if (error) {
         console.error('Error fetching calculations:', error);
@@ -106,6 +107,27 @@ const TelegramProfile: React.FC = () => {
 
   const calculatorHistory = calculations?.filter(c => c.calculation_type === 'calculator') || [];
   const aiSellerHistory = calculations?.filter(c => c.calculation_type === 'ai_seller') || [];
+
+  // Group by date helper
+  const groupByDate = (items: UserCalculation[]) => {
+    const groups: Record<string, UserCalculation[]> = {};
+    items.forEach(item => {
+      const date = new Date(item.created_at).toLocaleDateString('ru-RU', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(item);
+    });
+    return groups;
+  };
+
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDate = (date: string) => {
+    setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
+  };
 
   // Fetch client data from CRM
   const { data: clientData, isLoading: clientLoading } = useQuery({
@@ -580,50 +602,36 @@ const TelegramProfile: React.FC = () => {
             </Button>
 
             {calculatorHistory.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-foreground/50">История калькулятора ({calculatorHistory.length})</p>
-                {calculatorHistory.slice(0, 3).map(calc => (
-                  <Button
-                    key={calc.id}
-                    variant="ghost"
-                    className="w-full gap-2 justify-start text-sm h-auto py-2"
-                    onClick={() => {
-                      sessionStorage.setItem('sav-calculator-data', JSON.stringify(calc.data));
-                      navigate('/calculator');
-                    }}
-                  >
-                    <Calculator className="w-4 h-4 text-primary" />
-                    <span className="truncate">{calc.data?.company || calc.data?.product || 'Расчет'}</span>
-                    <span className="ml-auto text-xs text-foreground/40">
-                      {new Date(calc.created_at).toLocaleDateString('ru-RU')}
-                    </span>
-                  </Button>
-                ))}
-              </div>
+              <HistorySection
+                title={`История калькулятора (${calculatorHistory.length})`}
+                icon={<Calculator className="w-4 h-4 text-primary" />}
+                items={calculatorHistory}
+                groupByDate={groupByDate}
+                expandedDates={expandedDates}
+                toggleDate={toggleDate}
+                onItemClick={(calc) => {
+                  sessionStorage.setItem('sav-calculator-data', JSON.stringify(calc.data));
+                  navigate('/calculator');
+                }}
+                getItemLabel={(calc) => calc.data?.company || calc.data?.product || 'Расчет'}
+              />
             )}
 
             {aiSellerHistory.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-foreground/50">История ИИ-продавца ({aiSellerHistory.length})</p>
-                {aiSellerHistory.slice(0, 3).map(calc => (
-                  <Button
-                    key={calc.id}
-                    variant="ghost"
-                    className="w-full gap-2 justify-start text-sm h-auto py-2"
-                    onClick={() => {
-                      if (calc.data?.businessType) sessionStorage.setItem('sav-business-type', calc.data.businessType);
-                      if (calc.data?.selectedPlan) sessionStorage.setItem('sav-selected-plan', calc.data.selectedPlan);
-                      navigate('/ai-seller/plans');
-                    }}
-                  >
-                    <Sparkles className="w-4 h-4 text-accent" />
-                    <span className="truncate">{calc.data?.businessType || calc.data?.selectedPlan || 'Анализ'}</span>
-                    <span className="ml-auto text-xs text-foreground/40">
-                      {new Date(calc.created_at).toLocaleDateString('ru-RU')}
-                    </span>
-                  </Button>
-                ))}
-              </div>
+              <HistorySection
+                title={`История ИИ-продавца (${aiSellerHistory.length})`}
+                icon={<Sparkles className="w-4 h-4 text-accent" />}
+                items={aiSellerHistory}
+                groupByDate={groupByDate}
+                expandedDates={expandedDates}
+                toggleDate={toggleDate}
+                onItemClick={(calc) => {
+                  if (calc.data?.businessDescription) sessionStorage.setItem('sav-business-type', String(calc.data.businessDescription));
+                  if (calc.data?.selectedPlan) sessionStorage.setItem('sav-selected-plan', String(calc.data.selectedPlan));
+                  navigate('/ai-seller/plans');
+                }}
+                getItemLabel={(calc) => calc.data?.businessDescription || calc.data?.segment || calc.data?.selectedPlan || 'Анализ'}
+              />
             )}
           </motion.div>
         )}
@@ -633,6 +641,70 @@ const TelegramProfile: React.FC = () => {
       <footer className="mt-8 py-6 text-center opacity-20 text-[8px] md:text-[10px] tracking-[0.3em] uppercase font-bold">
         © 1885-2026 SAV AI • Королевская Академия Робототехники
       </footer>
+    </div>
+  );
+};
+
+// History section component with date grouping
+const HistorySection: React.FC<{
+  title: string;
+  icon: React.ReactNode;
+  items: UserCalculation[];
+  groupByDate: (items: UserCalculation[]) => Record<string, UserCalculation[]>;
+  expandedDates: Record<string, boolean>;
+  toggleDate: (date: string) => void;
+  onItemClick: (calc: UserCalculation) => void;
+  getItemLabel: (calc: UserCalculation) => string;
+}> = ({ title, icon, items, groupByDate, expandedDates, toggleDate, onItemClick, getItemLabel }) => {
+  const groups = groupByDate(items);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-foreground/50 flex items-center gap-1">{icon} {title}</p>
+      {Object.entries(groups).map(([date, dateItems]) => (
+        <div key={date} className="border border-foreground/10 rounded-lg overflow-hidden">
+          <button
+            onClick={() => toggleDate(`${title}-${date}`)}
+            className="w-full flex items-center justify-between px-3 py-2 hover:bg-foreground/5 transition-colors"
+          >
+            <span className="text-xs font-medium flex items-center gap-2">
+              <Calendar className="w-3 h-3 text-primary" />
+              {date}
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{dateItems.length}</Badge>
+            </span>
+            <ChevronDown className={`w-3 h-3 transition-transform ${expandedDates[`${title}-${date}`] ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+            {expandedDates[`${title}-${date}`] && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                {dateItems.map(calc => (
+                  <Button
+                    key={calc.id}
+                    variant="ghost"
+                    className="w-full gap-2 justify-start text-sm h-auto py-2 px-4 rounded-none border-t border-foreground/5"
+                    onClick={() => onItemClick(calc)}
+                  >
+                    <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <span className="text-xs text-muted-foreground w-12 shrink-0">
+                      {new Date(calc.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="truncate text-left flex-1">{getItemLabel(calc)}</span>
+                    {calc.data?.lastAction && (
+                      <span className="text-[10px] text-foreground/30 shrink-0">{String(calc.data.lastAction)}</span>
+                    )}
+                  </Button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ))}
     </div>
   );
 };

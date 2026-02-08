@@ -42,18 +42,35 @@ interface NotifyExpertSelectionRequest {
   messageSettings?: any; // legacy, now loaded from DB
 }
 
+function cleanTelegramText(text: string): string {
+  // Remove MarkdownV2 escapes and clean up for HTML parse mode
+  return text
+    .replace(/\\([_*\[\]()~`>#+\-=|{}.!])/g, '$1')
+    .replace(/\\/g, '');
+}
+
 function formatValue(format: TextFormat, value: string, buttonText?: string): string {
   if (!value || value === 'null' || value === 'undefined') return '';
+  
+  // Clean escaped text
+  const cleanValue = cleanTelegramText(value);
+  
+  // Truncate very long values like last_100_messages
+  const maxLen = 2000;
+  const truncatedValue = cleanValue.length > maxLen 
+    ? cleanValue.substring(0, maxLen) + '...[обрезано]' 
+    : cleanValue;
+  
   switch (format) {
-    case 'bold': return `<b>${value}</b>`;
-    case 'italic': return `<i>${value}</i>`;
-    case 'code': return `<code>${value}</code>`;
-    case 'mono': return `<pre>${value}</pre>`;
-    case 'quote': return `<blockquote>${value}</blockquote>`;
-    case 'link': return `<a href="${value}">${value}</a>`;
-    case 'inline_button': return value;
-    case 'inline_button_link': return value;
-    default: return value;
+    case 'bold': return `<b>${truncatedValue}</b>`;
+    case 'italic': return `<i>${truncatedValue}</i>`;
+    case 'code': return `<code>${truncatedValue}</code>`;
+    case 'mono': return `<pre>${truncatedValue}</pre>`;
+    case 'quote': return `<blockquote>${truncatedValue}</blockquote>`;
+    case 'link': return `<a href="${truncatedValue}">${truncatedValue}</a>`;
+    case 'inline_button': return truncatedValue;
+    case 'inline_button_link': return truncatedValue;
+    default: return truncatedValue;
   }
 }
 
@@ -62,7 +79,8 @@ function getFieldValue(
   clientInfo: NotifyExpertSelectionRequest['clientInfo'],
   calculatorInfo: NotifyExpertSelectionRequest['calculatorInfo'],
   aiSellerInfo: NotifyExpertSelectionRequest['aiSellerInfo'],
-  expertInfo: NotifyExpertSelectionRequest['expert']
+  expertInfo: NotifyExpertSelectionRequest['expert'],
+  clientDbData?: Record<string, string | null> | null
 ): string | null {
   let telegramLink = "";
   if (clientInfo.telegramUsername) {
@@ -71,27 +89,66 @@ function getFieldValue(
     telegramLink = `tg://user?id=${clientInfo.telegramId}`;
   }
 
+  // First check DB client data for any field
+  if (clientDbData && key in clientDbData && clientDbData[key]) {
+    // For special fields, still use computed values
+    if (!['full_name', 'telegram_link', 'selected_expert', 'expert_name', 'expert_pseudonym', 'business_type', 'classification_result'].includes(key)) {
+      return clientDbData[key];
+    }
+  }
+
   const valueMap: Record<string, string | null> = {
-    full_name: clientInfo.fullName || [clientInfo.firstName, clientInfo.lastName].filter(Boolean).join(' ') || null,
+    full_name: clientInfo.fullName || [clientInfo.firstName, clientInfo.lastName].filter(Boolean).join(' ') || clientDbData?.full_name || null,
     telegram_link: telegramLink || null,
     telegram_id: clientInfo.telegramId,
-    telegram_client: clientInfo.telegramUsername,
-    city: calculatorInfo?.city || null,
-    project: null,
-    product: calculatorInfo?.product || null,
-    department: calculatorInfo?.department || null,
-    employees_count: calculatorInfo?.employeeCount || null,
-    functionality: calculatorInfo?.functionality || null,
-    sav_cost: null,
-    tariff: aiSellerInfo?.selectedPlan || null,
-    avg_salary: calculatorInfo?.averageSalary || null,
+    telegram_client: clientInfo.telegramUsername || clientDbData?.telegram_client || null,
+    city: calculatorInfo?.city || clientDbData?.city || null,
+    project: clientDbData?.project || null,
+    product: calculatorInfo?.product || clientDbData?.product || null,
+    department: calculatorInfo?.department || clientDbData?.department || null,
+    employees_count: calculatorInfo?.employeeCount || clientDbData?.employees_count || null,
+    functionality: calculatorInfo?.functionality || clientDbData?.functionality || null,
+    sav_cost: clientDbData?.sav_cost || null,
+    tariff: aiSellerInfo?.selectedPlan || clientDbData?.tariff || null,
+    avg_salary: calculatorInfo?.averageSalary || clientDbData?.avg_salary || null,
     selected_expert: `${expertInfo.greeting || ''}${expertInfo.pseudonym || ''}`,
     expert_name: expertInfo.pseudonym,
     expert_pseudonym: expertInfo.pseudonym,
     business_type: aiSellerInfo?.businessType || null,
     classification_result: aiSellerInfo?.classificationResult || null,
-    company: calculatorInfo?.company || null,
+    company: calculatorInfo?.company || clientDbData?.project || null,
     maintenance: calculatorInfo?.maintenance || null,
+    last_message: clientDbData?.last_message || null,
+    last_100_messages: clientDbData?.last_100_messages || null,
+    channel: clientDbData?.channel || null,
+    status: clientDbData?.status || null,
+    comment: clientDbData?.comment || null,
+    payback: clientDbData?.payback || null,
+    service_price: clientDbData?.service_price || null,
+    ai_employee_cost: clientDbData?.ai_employee_cost || null,
+    protalk_name: clientDbData?.protalk_name || null,
+    protalk_id: clientDbData?.protalk_id || null,
+    contract_ooo_url: clientDbData?.contract_ooo_url || null,
+    contract_ip_url: clientDbData?.contract_ip_url || null,
+    project_plan_url: clientDbData?.project_plan_url || null,
+    region_salary: clientDbData?.region_salary || null,
+    real_salary: clientDbData?.real_salary || null,
+    software_price: clientDbData?.software_price || null,
+    ai_tokens_price: clientDbData?.ai_tokens_price || null,
+    refund_amount: clientDbData?.refund_amount || null,
+    service: clientDbData?.service || null,
+    service_type: clientDbData?.service_type || null,
+    calculator_date: clientDbData?.calculator_date || null,
+    start_date: clientDbData?.start_date || null,
+    tariff_date: clientDbData?.tariff_date || null,
+    expert_date: clientDbData?.expert_date || null,
+    payment_date: clientDbData?.payment_date || null,
+    bot_token: clientDbData?.bot_token || null,
+    script_id: clientDbData?.script_id || null,
+    kp_text: clientDbData?.kp_text || null,
+    department_text: clientDbData?.department_text || null,
+    software_text: clientDbData?.software_text || null,
+    project_code: clientDbData?.project_code || null,
   };
 
   return valueMap[key] || null;
@@ -121,10 +178,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { expert, clientInfo, aiSellerInfo, calculatorInfo, source } = data;
 
-    // Try to load notification template from DB
+    // Try to load notification template and client data from DB
     let template: any = null;
+    let clientDbData: Record<string, string | null> | null = null;
+
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      // Load template
       const { data: templateData } = await supabase
         .from("notification_templates")
         .select("*")
@@ -135,6 +196,20 @@ const handler = async (req: Request): Promise<Response> => {
       if (templateData) {
         template = templateData;
         console.log("Using DB template:", templateData.name);
+      }
+
+      // Load client data from clients table
+      if (clientInfo.telegramId) {
+        const { data: clientRecord } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("telegram_id", clientInfo.telegramId)
+          .maybeSingle();
+
+        if (clientRecord) {
+          clientDbData = clientRecord as Record<string, string | null>;
+          console.log("Found client in DB:", clientRecord.full_name || clientInfo.telegramId);
+        }
       }
     }
 
@@ -169,7 +244,7 @@ const handler = async (req: Request): Promise<Response> => {
         const fieldLines: string[] = [];
 
         for (const field of categoryFields) {
-          const value = getFieldValue(field.key, clientInfo, calculatorInfo, aiSellerInfo, expert);
+          const value = getFieldValue(field.key, clientInfo, calculatorInfo, aiSellerInfo, expert, clientDbData);
           if (!value) continue;
 
           if (field.format === 'inline_button' || field.format === 'inline_button_link') {
