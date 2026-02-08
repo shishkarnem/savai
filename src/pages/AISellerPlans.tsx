@@ -46,7 +46,11 @@ const AISellerPlans: React.FC = () => {
     } catch { return { type: null, classification: null, businessDescription: businessDescription || null }; }
   };
 
-  const sendNotification = async (action: string, payType: string = 'view') => {
+  const sendNotification = async (
+    action: string, 
+    payType: string = 'view',
+    extra?: { selectedTariff?: string; tariffPrice?: string; tariffDescription?: string; paymentModel?: string; currentStep?: string }
+  ) => {
     try {
       await supabase.functions.invoke('notify-tariff-selection', {
         body: {
@@ -56,8 +60,15 @@ const AISellerPlans: React.FC = () => {
             telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
             telegramUsername: telegramProfile?.username || null,
             fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
           },
           businessInfo: getBusinessInfo(),
+          currentStep: extra?.currentStep || action,
+          selectedTariff: extra?.selectedTariff || null,
+          tariffPrice: extra?.tariffPrice || null,
+          tariffDescription: extra?.tariffDescription || null,
+          paymentModel: extra?.paymentModel || null,
         },
       });
     } catch (err) {
@@ -79,7 +90,7 @@ const AISellerPlans: React.FC = () => {
     // Send notification about plan view (only once per session)
     if (!viewNotifiedRef.current && telegramProfile) {
       viewNotifiedRef.current = true;
-      sendNotification('Просмотр тарифов');
+      sendNotification('Просмотр тарифов', 'view', { currentStep: 'Просмотр тарифов' });
     }
   }, [telegramProfile]);
 
@@ -91,8 +102,13 @@ const AISellerPlans: React.FC = () => {
     setPaymentType(null);
     trackAction('select_plan', { page: '/ai-seller/plans', value: plan });
     
-    // Send notification when plan card is clicked ("Изучить чертеж" on card)
-    sendNotification(`Изучить чертеж: ${plan}`);
+    const planData = displayPlans.find(p => p.package === plan);
+    sendNotification(`Изучить чертеж: ${plan}`, 'view', {
+      currentStep: 'Изучить чертеж',
+      selectedTariff: plan,
+      tariffPrice: planData?.priceMonth ? `${planData.priceMonth.toLocaleString()} ₽/мес` : 'По запросу',
+      tariffDescription: planData?.fullDescription || null,
+    });
   };
 
   const handlePaymentSelect = (type: PaymentType) => {
@@ -104,9 +120,20 @@ const AISellerPlans: React.FC = () => {
       sessionStorage.setItem('sav-selected-plan', selectedPlan);
       sessionStorage.setItem('sav-payment-type', paymentType);
 
-      // Send notification with payment type
       const payLabel = paymentType === 'monthly' ? 'Ежемесячный' : 'Единоразовый';
-      await sendNotification(`Изучить чертеж: ${selectedPlan} (${payLabel})`, paymentType);
+      const price = selectedPlanData?.priceMonth 
+        ? (paymentType === 'onetime' 
+          ? `${(selectedPlanData.priceMonth * 6).toLocaleString()} ₽` 
+          : `${selectedPlanData.priceMonth.toLocaleString()} ₽/мес`)
+        : 'По запросу';
+      
+      await sendNotification(`Изучить чертеж: ${selectedPlan} (${payLabel})`, paymentType, {
+        currentStep: 'Выбор модели оплаты',
+        selectedTariff: selectedPlan,
+        tariffPrice: price,
+        tariffDescription: selectedPlanData?.fullDescription || null,
+        paymentModel: payLabel,
+      });
 
       navigate(`/ai-seller/plan/${encodeURIComponent(selectedPlan)}`);
     }

@@ -13,7 +13,7 @@ function formatValue(format: string, value: string, buttonText?: string): string
     case 'bold': return `<b>${value}</b>`;
     case 'italic': return `<i>${value}</i>`;
     case 'code': return `<code>${value}</code>`;
-    case 'mono': return `<pre>${value}</pre>`;
+    case 'mono': return `\`\`\`\n${value}\n\`\`\``;
     case 'quote': return `<blockquote>${value}</blockquote>`;
     case 'link': return `<a href="${value}">${value}</a>`;
     case 'inline_button': return value;
@@ -29,12 +29,19 @@ interface NotifyTariffRequest {
     telegramId: string | null;
     telegramUsername: string | null;
     fullName: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
   };
   businessInfo?: {
     type: string | null;
     classification: string | null;
     businessDescription: string | null;
   };
+  currentStep?: string | null;
+  selectedTariff?: string | null;
+  tariffPrice?: string | null;
+  tariffDescription?: string | null;
+  paymentModel?: string | null;
 }
 
 serve(async (req) => {
@@ -82,13 +89,29 @@ serve(async (req) => {
       telegramLink = `tg://user?id=${clientInfo.telegramId}`;
     }
 
+    // Payment label
+    const paymentLabel = paymentType === 'monthly' ? 'Ежемесячный' 
+      : paymentType === 'onetime' ? 'Единоразовый' 
+      : 'Просмотр';
+
     let message = '';
     const inlineButtons: Array<{ text: string; url?: string; callback_data?: string }> = [];
 
     if (template && template.fields) {
-      // Use template from DB
-      const fields = template.fields as any[];
-      
+      // Parse fields: can be array (old format) or object with fieldsList (new format)
+      const rawFields = template.fields;
+      let fields: any[] = [];
+      let templateInlineButtons: any[] = [];
+
+      if (Array.isArray(rawFields)) {
+        fields = rawFields;
+      } else if (rawFields && typeof rawFields === 'object') {
+        fields = (rawFields as any).fieldsList || [];
+        templateInlineButtons = (rawFields as any).inlineButtons || [];
+      }
+
+      console.log("Parsed fields count:", fields.length, "inline buttons:", templateInlineButtons.length);
+
       if (template.header_text) {
         message += template.header_text + '\n\n';
       }
@@ -96,6 +119,8 @@ serve(async (req) => {
       // Build value map for template fields
       const valueMap: Record<string, string | null> = {
         full_name: clientInfo.fullName,
+        first_name: clientInfo.firstName || null,
+        last_name: clientInfo.lastName || null,
         telegram_link: telegramLink || null,
         telegram_id: clientInfo.telegramId,
         telegram_client: clientInfo.telegramUsername,
@@ -103,10 +128,12 @@ serve(async (req) => {
         business_type: businessInfo?.type || null,
         classification_result: businessInfo?.classification || null,
         business_description: businessInfo?.businessDescription || null,
+        current_step: data.currentStep || tariffName,
+        selected_tariff: data.selectedTariff || null,
+        tariff_price: data.tariffPrice || null,
+        tariff_description: data.tariffDescription || null,
+        payment_model: data.paymentModel || paymentLabel,
       };
-
-      // Add payment type info
-      const paymentLabel = paymentType === 'monthly' ? 'Ежемесячный' : paymentType === 'onetime' ? 'Единоразовый' : 'Просмотр';
 
       const enabledFields = fields.filter((f: any) => f.enabled);
       for (const field of enabledFields) {
@@ -126,18 +153,31 @@ serve(async (req) => {
         }
       }
 
-      // Always add tariff and payment info
-      if (!enabledFields.some((f: any) => f.key === 'tariff')) {
-        message += `\n📦 <b>Тариф:</b> ${tariffName}\n`;
+      // Add template inline buttons
+      for (const row of templateInlineButtons) {
+        if (row.buttons) {
+          for (const btn of row.buttons) {
+            if (btn.type === 'link' && btn.url) {
+              inlineButtons.push({ text: btn.text, url: btn.url });
+            } else if (btn.type === 'webapp' && btn.url) {
+              inlineButtons.push({ text: btn.text, url: btn.url });
+            }
+          }
+        }
       }
-      message += `💳 <b>Действие:</b> ${paymentLabel}\n`;
+
+      // Always add payment info if not in template
+      if (!enabledFields.some((f: any) => f.key === 'payment_model')) {
+        message += `\n💳 <b>Действие:</b> ${paymentLabel}\n`;
+      }
 
       if (template.footer_text) {
         message += '\n' + template.footer_text;
       }
     } else {
       // Default message format
-      message = `📋 <b>Просматривает расчет ИИ-Продавца!</b>\n\n`;
+      message = `📋 <b>Действие в ИИ-Продавце!</b>\n\n`;
+      message += `📍 <b>Шаг:</b> ${data.currentStep || tariffName}\n`;
       message += `👤 <b>Клиент:</b> ${clientInfo.fullName || 'Не указано'}\n`;
       
       if (telegramLink) {
@@ -145,7 +185,7 @@ serve(async (req) => {
       }
       
       if (businessInfo?.businessDescription) {
-        message += `\n📝 <b>Деятельность:</b> ${businessInfo.businessDescription}\n`;
+        message += `\n📝 <b>Чем занимается:</b> ${businessInfo.businessDescription}\n`;
       }
       
       if (businessInfo?.type) {
@@ -154,13 +194,21 @@ serve(async (req) => {
       if (businessInfo?.classification) {
         message += `📊 <b>Классификация:</b> ${businessInfo.classification}\n`;
       }
-      
-      message += `\n📦 <b>Тариф:</b> ${tariffName}\n`;
-      message += `💳 <b>Действие:</b> ${paymentType === 'monthly' ? 'Ежемесячный' : paymentType === 'onetime' ? 'Единоразовый' : paymentType === 'view' ? 'Просмотр' : paymentType}\n`;
-      
-      if (paymentType === 'view') {
-        message += `\nЭто только просмотр, если в течении 5 минут не выбрали тариф, то лучше связаться и взять в работу.`;
+
+      if (data.selectedTariff) {
+        message += `\n📦 <b>Тариф:</b> ${data.selectedTariff}\n`;
       }
+      if (data.tariffPrice) {
+        message += `💰 <b>Стоимость:</b> ${data.tariffPrice}\n`;
+      }
+      if (data.tariffDescription) {
+        const desc = data.tariffDescription.length > 200 
+          ? data.tariffDescription.substring(0, 200) + '...' 
+          : data.tariffDescription;
+        message += `📄 <b>Описание:</b> ${desc}\n`;
+      }
+      
+      message += `\n💳 <b>Модель оплаты:</b> ${data.paymentModel || paymentLabel}\n`;
     }
 
     // Send to Telegram
@@ -187,7 +235,7 @@ serve(async (req) => {
     const telegramResult = await telegramResponse.json();
     console.log("Telegram response:", JSON.stringify(telegramResult));
 
-    // Save to database with template reference
+    // Save to database
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       await supabase.from("tariff_notifications").insert({

@@ -60,12 +60,15 @@ const AISellerResult: React.FC = () => {
             telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
             telegramUsername: telegramProfile?.username || null,
             fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
           },
           businessInfo: {
             type: bizType,
             classification,
             businessDescription,
           },
+          currentStep: 'Показать тарифы',
         },
       });
     } catch (err) {
