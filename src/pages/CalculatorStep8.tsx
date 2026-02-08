@@ -68,12 +68,18 @@ const CalculatorStep8: React.FC = () => {
     return employees * salary;
   };
 
+  const [submitError, setSubmitError] = useState(false);
+
   const submitForm = async () => {
     if (!formData) return;
     
     trackAction('submit_calculator', { page: '/calculator/step8', value: promoCode || 'no-promo' });
     saveSessionData({ ...formData, promoCode, step: 'submitted' } as any);
+    
+    // Show success screen immediately
     setIsSubmitting(true);
+    setIsComplete(true);
+    sessionStorage.removeItem('sav-calculator-data');
     
     const chatId = telegramProfile?.telegram_id 
       ? String(telegramProfile.telegram_id) 
@@ -95,6 +101,7 @@ const CalculatorStep8: React.FC = () => {
       'ПРОМОКОД': promoCode || ''
     };
 
+    // Send POST in background - don't block the success screen
     try {
       await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -103,22 +110,18 @@ const CalculatorStep8: React.FC = () => {
         body: JSON.stringify(payload)
       });
       
-      setIsComplete(true);
-      // Clear session data
-      sessionStorage.removeItem('sav-calculator-data');
-      
       toast({
         title: "Расчёт отправлен!",
         description: "В течение минуты вы получите итоговый расчёт.",
       });
     } catch (error) {
       console.error('Submit error:', error);
+      setSubmitError(true);
       toast({
-        title: "Расчёт отправлен",
-        description: "Если не получите ответ, заполните форму по ссылке.",
+        title: "Ошибка отправки",
+        description: "Попробуйте заполнить форму по ссылке ниже.",
         variant: "destructive"
       });
-      setIsComplete(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -143,9 +146,18 @@ const CalculatorStep8: React.FC = () => {
               >
                 <Check className="w-10 h-10 text-primary" />
               </motion.div>
-              <h3 className="text-2xl font-bold mb-4">Расчёт отправлен!</h3>
+              <h3 className="text-2xl font-bold mb-4">
+                {submitError ? 'Ошибка отправки' : isSubmitting ? 'Отправка расчёта...' : 'Расчёт отправлен!'}
+              </h3>
+              {isSubmitting && (
+                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+              )}
               <p className="text-muted-foreground mb-6">
-                В течение минуты вы получите итоговый расчёт, который будет включать:
+                {submitError 
+                  ? 'Не удалось отправить расчёт автоматически. Заполните форму по ссылке ниже.'
+                  : isSubmitting 
+                    ? 'Пожалуйста, подождите...'
+                    : 'В течение минуты вы получите итоговый расчёт, который будет включать:'}
               </p>
               <ul className="text-left max-w-md mx-auto space-y-2 mb-6">
                 <li>✨ Стоимость ИИ чат-бота</li>

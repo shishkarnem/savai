@@ -4,6 +4,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Heart, ThumbsDown, ChevronDown, X, Sparkles, Filter } from 'lucide-react';
 import ExpertCard, { Expert, SwipeDirection } from '@/components/ExpertCard';
 import Rivets from '@/components/Rivets';
+import { supabase } from '@/integrations/supabase/client';
+import { useTelegramAuth } from '@/contexts/TelegramAuthContext';
+import { useToast } from '@/hooks/use-toast';
+import AuditInfoModal from '@/components/AuditInfoModal';
 
 interface SwipeHistoryItem {
   expert: Expert;
@@ -20,15 +24,18 @@ const ExpertHistory: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
+  const { profile: telegramProfile } = useTelegramAuth();
+  const { toast } = useToast();
   
   const [history, setHistory] = useState<SwipeHistoryItem[]>([]);
   const [selectedExpert, setSelectedExpert] = useState<SwipeHistoryItem | null>(null);
   const [explosionIcons, setExplosionIcons] = useState<{ id: number; x: number; y: number; icon: string }[]>([]);
   const [activeFilter, setActiveFilter] = useState<SwipeDirection | 'all'>('all');
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [lastSelectedExpertName, setLastSelectedExpertName] = useState('');
 
   useEffect(() => {
     if (state?.history) {
-      // Restore timestamps as Date objects
       const restoredHistory = state.history.map(item => ({
         ...item,
         timestamp: new Date(item.timestamp)
@@ -55,8 +62,61 @@ const ExpertHistory: React.FC = () => {
     setTimeout(() => setExplosionIcons([]), 600);
   };
 
+  const sendExpertNotification = async (expert: Expert) => {
+    const storedBizInfo = sessionStorage.getItem('sav-business-info');
+    const bizInfoParsed = storedBizInfo ? JSON.parse(storedBizInfo) : null;
+    const fromAISeller = !!sessionStorage.getItem('sav-selected-plan');
+
+    const aiSellerData = {
+      businessType: bizInfoParsed ? `${bizInfoParsed.segment} / ${bizInfoParsed.category} / ${bizInfoParsed.sphere}` : undefined,
+      classificationResult: bizInfoParsed?.description || undefined,
+      selectedPlan: sessionStorage.getItem('sav-selected-plan') || undefined,
+      presentationText: sessionStorage.getItem('sav-presentation-text') || undefined,
+    };
+
+    const calculatorDataStr = sessionStorage.getItem('sav-calculator-data');
+    const calculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
+
+    try {
+      const response = await supabase.functions.invoke('notify-expert-selection', {
+        body: {
+          expert: {
+            id: expert.id,
+            greeting: expert.greeting,
+            pseudonym: expert.pseudonym,
+            spheres: expert.spheres,
+          },
+          clientInfo: {
+            telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
+            telegramUsername: telegramProfile?.username || null,
+            fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
+          },
+          aiSellerInfo: fromAISeller ? aiSellerData : undefined,
+          calculatorInfo: calculatorData.company ? calculatorData : undefined,
+          source: fromAISeller ? 'ai-seller' : 'calculator',
+        },
+      });
+
+      if (response.error) {
+        console.error('Error sending notification:', response.error);
+      } else {
+        const expertName = `${expert.greeting || ''}${expert.pseudonym || ''}`;
+        toast({
+          title: 'Эксперт выбран!',
+          description: `${expertName} получит уведомление о вашем запросе`,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
+
   const handleChangeDirection = (expertId: string, newDirection: SwipeDirection) => {
     triggerExplosion(newDirection);
+    
+    const item = history.find(h => h.expert.id === expertId);
     
     setHistory(prev => prev.map(item => 
       item.expert.id === expertId 
@@ -64,9 +124,16 @@ const ExpertHistory: React.FC = () => {
         : item
     ));
 
-    // Update selected expert if modal is open
     if (selectedExpert?.expert.id === expertId) {
       setSelectedExpert(prev => prev ? { ...prev, direction: newDirection, timestamp: new Date() } : null);
+    }
+
+    // Send notification when status changes to "selected" (right)
+    if (newDirection === 'right' && item) {
+      sendExpertNotification(item.expert);
+      const expertName = `${item.expert.greeting || ''}${item.expert.pseudonym || ''}`;
+      setLastSelectedExpertName(expertName);
+      setShowAuditModal(true);
     }
   };
 
@@ -112,6 +179,18 @@ const ExpertHistory: React.FC = () => {
       <i className="fa-solid fa-gear gear text-9xl top-10 -left-10 opacity-5"></i>
       <i className="fa-solid fa-gear gear text-7xl bottom-20 -right-5 opacity-5" style={{ animationDirection: 'reverse' }}></i>
 
+      {/* Audit Info Modal */}
+      <AuditInfoModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+        expertName={lastSelectedExpertName}
+        onGoToHistory={() => setShowAuditModal(false)}
+        onGoToSwipes={() => {
+          setShowAuditModal(false);
+          handleBackWithState();
+        }}
+      />
+
       {/* Header */}
       <header className="w-full max-w-4xl mx-auto flex justify-between items-center mb-6">
         <button 
@@ -122,7 +201,7 @@ const ExpertHistory: React.FC = () => {
           <span className="text-sm">Назад</span>
         </button>
         <h1 className="text-2xl md:text-3xl text-center">История свайпов</h1>
-        <div className="w-20" /> {/* Spacer for centering */}
+        <div className="w-20" />
       </header>
 
       {/* Stats & Filters */}
@@ -223,7 +302,6 @@ const ExpertHistory: React.FC = () => {
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setSelectedExpert(null)}
           >
-            {/* Explosion Icons */}
             {explosionIcons.map(icon => (
               <motion.span
                 key={icon.id}
