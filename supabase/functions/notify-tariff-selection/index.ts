@@ -33,6 +33,7 @@ interface NotifyTariffRequest {
   businessInfo?: {
     type: string | null;
     classification: string | null;
+    businessDescription: string | null;
   };
 }
 
@@ -101,6 +102,7 @@ serve(async (req) => {
         tariff: tariffName,
         business_type: businessInfo?.type || null,
         classification_result: businessInfo?.classification || null,
+        business_description: businessInfo?.businessDescription || null,
       };
 
       // Add payment type info
@@ -135,21 +137,29 @@ serve(async (req) => {
       }
     } else {
       // Default message format
-      message = `📋 <b>Новый выбор тарифа!</b>\n\n`;
+      message = `📋 <b>Просматривает расчет ИИ-Продавца!</b>\n\n`;
       message += `👤 <b>Клиент:</b> ${clientInfo.fullName || 'Не указано'}\n`;
       
       if (telegramLink) {
         message += `📱 <b>Telegram:</b> <a href="${telegramLink}">${clientInfo.telegramUsername || clientInfo.telegramId}</a>\n`;
       }
       
-      message += `\n📦 <b>Тариф:</b> ${tariffName}\n`;
-      message += `💳 <b>Тип оплаты:</b> ${paymentType === 'monthly' ? 'Ежемесячный' : paymentType === 'onetime' ? 'Единоразовый' : 'Просмотр'}\n`;
+      if (businessInfo?.businessDescription) {
+        message += `\n📝 <b>Деятельность:</b> ${businessInfo.businessDescription}\n`;
+      }
       
       if (businessInfo?.type) {
-        message += `\n🏢 <b>Бизнес:</b> ${businessInfo.type}\n`;
+        message += `🏢 <b>Бизнес:</b> ${businessInfo.type}\n`;
       }
       if (businessInfo?.classification) {
         message += `📊 <b>Классификация:</b> ${businessInfo.classification}\n`;
+      }
+      
+      message += `\n📦 <b>Тариф:</b> ${tariffName}\n`;
+      message += `💳 <b>Действие:</b> ${paymentType === 'monthly' ? 'Ежемесячный' : paymentType === 'onetime' ? 'Единоразовый' : paymentType === 'view' ? 'Просмотр' : paymentType}\n`;
+      
+      if (paymentType === 'view') {
+        message += `\nЭто только просмотр, если в течении 5 минут не выбрали тариф, то лучше связаться и взять в работу.`;
       }
     }
 

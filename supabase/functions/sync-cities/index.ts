@@ -40,26 +40,40 @@ async function fetchCitiesFromSheet(): Promise<CityData[]> {
   
   const cities: CityData[] = [];
   
-  // Process rows - assuming column A is city name, column B is salary
+  // Log available columns for debugging
+  if (data.table.cols) {
+    console.log('Sheet columns:', data.table.cols.map((c: any, i: number) => `${i}: ${c.label || c.id}`));
+  }
+  
+  // Process rows - column A is city name, column C (index 2) is salary in rubles
   for (const row of data.table.rows) {
     if (!row.c || !row.c[0]) continue;
     
     const cityName = row.c[0]?.v;
     if (!cityName || typeof cityName !== 'string' || cityName.trim() === '') continue;
     
-    // Try to get salary from column B (index 1)
+    // Get salary from column C (index 2) - rubles
     let avgSalary: number | null = null;
-    if (row.c[1]?.v !== undefined && row.c[1]?.v !== null) {
-      const salaryValue = row.c[1].v;
+    const salaryCell = row.c[2]; // Column C
+    if (salaryCell?.v !== undefined && salaryCell?.v !== null) {
+      const salaryValue = salaryCell.v;
       if (typeof salaryValue === 'number') {
-        avgSalary = salaryValue;
+        avgSalary = Math.round(salaryValue);
       } else if (typeof salaryValue === 'string') {
-        // Try to parse salary from string (remove spaces, currency symbols)
-        const parsed = parseInt(salaryValue.replace(/\s/g, '').replace(/[^\d]/g, ''), 10);
+        // Parse salary - handle locale formats (spaces, commas, dots)
+        const cleaned = salaryValue
+          .replace(/\s/g, '')
+          .replace(/,/g, '.')
+          .replace(/[^\d.]/g, '');
+        const parsed = parseFloat(cleaned);
         if (!isNaN(parsed)) {
-          avgSalary = parsed;
+          avgSalary = Math.round(parsed);
         }
       }
+    }
+    
+    if (avgSalary !== null) {
+      console.log(`City: ${cityName.trim()}, Salary: ${avgSalary}`);
     }
     
     cities.push({

@@ -31,6 +31,8 @@ const AISeller: React.FC = () => {
     try {
       const info = await classifyBusiness(inputValue);
       sessionStorage.setItem('sav-business-info', JSON.stringify(info));
+      // Store the raw business description separately for notifications
+      sessionStorage.setItem('sav-business-description', inputValue);
       await saveSessionData({
         businessDescription: inputValue,
         segment: info.segment,
