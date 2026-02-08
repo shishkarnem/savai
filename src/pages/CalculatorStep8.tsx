@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Send, Tag, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, Send, Tag, Loader2, Check, ExternalLink, AlertTriangle } from 'lucide-react';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,8 @@ const CalculatorStep8: React.FC = () => {
   const [promoCode, setPromoCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
+  const [postSent, setPostSent] = useState(false);
   const [formData, setFormData] = useState<FormData | null>(null);
   const { trackAction, saveSessionData } = useActionTracker('calculator');
 
@@ -68,8 +70,6 @@ const CalculatorStep8: React.FC = () => {
     return employees * salary;
   };
 
-  const [submitError, setSubmitError] = useState(false);
-
   const submitForm = async () => {
     if (!formData) {
       console.error('submitForm: formData is null, cannot submit');
@@ -80,7 +80,7 @@ const CalculatorStep8: React.FC = () => {
     trackAction('submit_calculator', { page: '/calculator/step8', value: promoCode || 'no-promo' });
     saveSessionData({ ...formData, promoCode, step: 'submitted' } as any);
     
-    // Show success screen immediately
+    // Show success screen immediately while POST runs in background
     setIsSubmitting(true);
     setIsComplete(true);
     
@@ -88,7 +88,6 @@ const CalculatorStep8: React.FC = () => {
       ? String(telegramProfile.telegram_id) 
       : Date.now().toString();
     
-    // Build payload with field name fallbacks
     const payload = {
       formUrl: FORM_URL,
       chat_id: chatId,
@@ -107,7 +106,6 @@ const CalculatorStep8: React.FC = () => {
 
     console.log('Calculator POST payload:', JSON.stringify(payload));
 
-    // Send POST in background - don't block the success screen
     try {
       const response = await fetch(SCRIPT_URL, {
         method: 'POST',
@@ -118,12 +116,13 @@ const CalculatorStep8: React.FC = () => {
       
       console.log('Calculator POST sent, response type:', response.type);
       
-      // Clear sessionStorage only after successful send
       sessionStorage.removeItem('sav-calculator-data');
+      setPostSent(true);
+      setSubmitError(false);
       
       toast({
         title: "Расчёт отправлен!",
-        description: "В течение минуты вы получите итоговый расчёт.",
+        description: "Коммерческое предложение придёт в Telegram в течение минуты.",
       });
     } catch (error) {
       console.error('Submit error:', error);
@@ -150,44 +149,85 @@ const CalculatorStep8: React.FC = () => {
             
             <div className="steampunk-border p-6 md:p-8 relative text-center">
               <Rivets />
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center"
-              >
-                <Check className="w-10 h-10 text-primary" />
-              </motion.div>
-              <h3 className="text-2xl font-bold mb-4">
-                {submitError ? 'Ошибка отправки' : isSubmitting ? 'Отправка расчёта...' : 'Расчёт отправлен!'}
-              </h3>
-              {isSubmitting && (
-                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+              
+              {submitError ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/20 flex items-center justify-center"
+                  >
+                    <AlertTriangle className="w-10 h-10 text-destructive" />
+                  </motion.div>
+                  <h3 className="text-2xl font-bold mb-4">Ошибка отправки</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Не удалось отправить расчёт автоматически. Заполните форму по ссылке ниже.
+                  </p>
+                  <a 
+                    href="https://docs.google.com/forms/d/e/1FAIpQLSdSARiTa4zYB-sYseymb3Q0C1Y_dBh8oDLavON_2mTu8o574w/viewform"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-primary underline mb-4"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Открыть гугл-форму
+                  </a>
+                </>
+              ) : isSubmitting ? (
+                <>
+                  <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-6" />
+                  <h3 className="text-2xl font-bold mb-4">Отправка расчёта...</h3>
+                  <p className="text-muted-foreground mb-6">Пожалуйста, подождите...</p>
+                </>
+              ) : (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="w-20 h-20 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center"
+                  >
+                    <Check className="w-10 h-10 text-primary" />
+                  </motion.div>
+                  <h3 className="text-2xl font-bold mb-4">Расчёт отправлен!</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Итоговый расчёт и коммерческое предложение будут отправлены вам в личные сообщения в Telegram <b>в течение минуты</b>.
+                  </p>
+                  
+                  <div className="p-4 rounded-lg border border-primary/30 bg-gradient-to-br from-background/80 to-primary/5 mb-6">
+                    <p className="text-sm mb-3">Расчёт включает:</p>
+                    <ul className="text-left max-w-md mx-auto space-y-2 mb-4 text-sm">
+                      <li>✨ Стоимость ИИ чат-бота</li>
+                      <li>✨ Возможные расходы на софт</li>
+                      <li>✨ Окупаемость в днях</li>
+                    </ul>
+                  </div>
+                  
+                  <a
+                    href="https://t.me/SAV_AIbot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="steampunk-button inline-flex items-center gap-2 px-8 py-3 text-base mb-4"
+                  >
+                    <Send className="w-5 h-5" />
+                    Открыть Telegram бот
+                  </a>
+                  
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Если расчёт не пришёл, заполните{' '}
+                    <a 
+                      href="https://docs.google.com/forms/d/e/1FAIpQLSdSARiTa4zYB-sYseymb3Q0C1Y_dBh8oDLavON_2mTu8o574w/viewform"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline"
+                    >
+                      гугл-форму
+                    </a>
+                  </p>
+                </>
               )}
-              <p className="text-muted-foreground mb-6">
-                {submitError 
-                  ? 'Не удалось отправить расчёт автоматически. Заполните форму по ссылке ниже.'
-                  : isSubmitting 
-                    ? 'Пожалуйста, подождите...'
-                    : 'В течение минуты вы получите итоговый расчёт, который будет включать:'}
-              </p>
-              <ul className="text-left max-w-md mx-auto space-y-2 mb-6">
-                <li>✨ Стоимость ИИ чат-бота</li>
-                <li>✨ Возможные расходы на софт</li>
-                <li>✨ Окупаемость в днях</li>
-              </ul>
-              <p className="text-xs text-muted-foreground mb-4">
-                Если расчёт не пришёл, заполните{' '}
-                <a 
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSdSARiTa4zYB-sYseymb3Q0C1Y_dBh8oDLavON_2mTu8o574w/viewform"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  гугл-форму
-                </a>
-              </p>
-              <Button onClick={() => navigate('/')} className="mt-4">
-                Вернуться назад
+              
+              <Button onClick={() => navigate('/')} className="mt-4" variant="outline">
+                Вернуться на главную
               </Button>
             </div>
           </div>

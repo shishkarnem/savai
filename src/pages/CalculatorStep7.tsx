@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, UserCheck, User, Check, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight, ChevronDown, UserCheck, User, Check, Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Rivets from '@/components/Rivets';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { useActionTracker } from '@/hooks/useActionTracker';
 const CalculatorStep7: React.FC = () => {
   const navigate = useNavigate();
   const [selectedExpertId, setSelectedExpertId] = useState('');
+  const [expandedExpertId, setExpandedExpertId] = useState<string | null>(null);
   const { trackAction, saveSessionData } = useActionTracker('calculator');
 
   useEffect(() => { trackAction('visit_page', { page: '/calculator/step7' }); }, []);
@@ -43,6 +44,16 @@ const CalculatorStep7: React.FC = () => {
       } catch {}
     }
   }, []);
+
+  const handleExpertClick = (expertId: string) => {
+    if (selectedExpertId === expertId) {
+      // Toggle expand if already selected
+      setExpandedExpertId(prev => prev === expertId ? null : expertId);
+    } else {
+      setSelectedExpertId(expertId);
+      setExpandedExpertId(expertId);
+    }
+  };
 
   const handleNext = () => {
     const saved = sessionStorage.getItem('sav-calculator-data');
@@ -95,7 +106,7 @@ const CalculatorStep7: React.FC = () => {
 
               <div className="space-y-4 min-h-[350px]">
                 <p className="text-muted-foreground text-sm mb-4">
-                  Выберите эксперта, который проведёт бесплатный аудит и поможет с внедрением ИИ.
+                  Выберите эксперта, который проведёт бесплатный аудит и поможет с внедрением ИИ. Нажмите на карточку, чтобы узнать больше.
                 </p>
                 
                 <div className="space-y-3">
@@ -109,42 +120,95 @@ const CalculatorStep7: React.FC = () => {
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : (
-                    <div className="grid gap-3 max-h-[350px] overflow-y-auto pr-2">
+                    <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
                       {experts.map(expert => (
-                        <button
-                          key={expert.id}
-                          onClick={() => setSelectedExpertId(expert.id)}
-                          className={`p-4 rounded-lg border text-left transition-all flex items-center gap-4 ${
-                            selectedExpertId === expert.id
-                              ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
-                              : 'border-primary/20 bg-background/30 hover:border-primary/50'
-                          }`}
-                        >
-                          {expert.photo_url ? (
-                            <img 
-                              src={expert.photo_url} 
-                              alt={expert.pseudonym || 'Expert'}
-                              className="w-14 h-14 rounded-full object-cover border-2 border-primary/30"
-                            />
-                          ) : (
-                            <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center">
-                              <User className="w-6 h-6 text-primary" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-primary">
-                              {expert.greeting}{expert.pseudonym}
-                            </div>
-                            {expert.spheres && (
-                              <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
-                                {expert.spheres}
+                        <div key={expert.id} className="space-y-0">
+                          <button
+                            onClick={() => handleExpertClick(expert.id)}
+                            className={`w-full p-4 rounded-lg border text-left transition-all flex items-center gap-4 ${
+                              selectedExpertId === expert.id
+                                ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20'
+                                : 'border-primary/20 bg-background/30 hover:border-primary/50'
+                            }`}
+                          >
+                            {expert.photo_url ? (
+                              <img 
+                                src={expert.photo_url} 
+                                alt={expert.pseudonym || 'Expert'}
+                                className="w-14 h-14 rounded-full object-cover border-2 border-primary/30"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center">
+                                <User className="w-6 h-6 text-primary" />
                               </div>
                             )}
-                          </div>
-                          {selectedExpertId === expert.id && (
-                            <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                          )}
-                        </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-primary">
+                                {expert.greeting}{expert.pseudonym}
+                              </div>
+                              {expert.spheres && (
+                                <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                                  {expert.spheres}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {selectedExpertId === expert.id && (
+                                <Check className="w-5 h-5 text-primary" />
+                              )}
+                              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${
+                                expandedExpertId === expert.id ? 'rotate-180' : ''
+                              }`} />
+                            </div>
+                          </button>
+                          
+                          <AnimatePresence>
+                            {expandedExpertId === expert.id && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-4 border border-t-0 border-primary/20 rounded-b-lg bg-background/50 space-y-3">
+                                  {expert.description && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-primary mb-1">Описание:</h4>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {expert.description}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {expert.cases && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-primary mb-1">Кейсы:</h4>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {expert.cases}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {expert.tools && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-primary mb-1">Инструменты:</h4>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {expert.tools}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {expert.other_info && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-primary mb-1">Дополнительно:</h4>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {expert.other_info}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       ))}
                     </div>
                   )}
