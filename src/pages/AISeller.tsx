@@ -37,12 +37,15 @@ const AISeller: React.FC = () => {
             telegramId: telegramProfile?.telegram_id ? String(telegramProfile.telegram_id) : null,
             telegramUsername: telegramProfile?.username || null,
             fullName: [telegramProfile?.first_name, telegramProfile?.last_name].filter(Boolean).join(' ') || null,
+            firstName: telegramProfile?.first_name || null,
+            lastName: telegramProfile?.last_name || null,
           },
           businessInfo: {
             type: businessInfo ? `${businessInfo.segment} / ${businessInfo.category} / ${businessInfo.sphere}` : null,
             classification: businessInfo?.description || null,
             businessDescription: businessDescription || null,
           },
+          currentStep: 'Классификация',
         },
       });
     } catch (err) {

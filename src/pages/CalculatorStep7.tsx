@@ -172,33 +172,33 @@ const CalculatorStep7: React.FC = () => {
                                 className="overflow-hidden"
                               >
                                 <div className="p-4 border border-t-0 border-primary/20 rounded-b-lg bg-background/50 space-y-3">
-                                  {expert.description && (
+                                  {expert.spheres && (
                                     <div>
-                                      <h4 className="text-xs font-semibold text-primary mb-1">Описание:</h4>
+                                      <p className="text-primary text-xs uppercase mb-1 opacity-70">💰 Сферы</p>
                                       <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                        {expert.description}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {expert.cases && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-primary mb-1">Кейсы:</h4>
-                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                        {expert.cases}
+                                        {expert.spheres}
                                       </p>
                                     </div>
                                   )}
                                   {expert.tools && (
                                     <div>
-                                      <h4 className="text-xs font-semibold text-primary mb-1">Инструменты:</h4>
+                                      <p className="text-primary text-xs uppercase mb-1 opacity-70">⚒️ Инструменты</p>
                                       <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                         {expert.tools}
                                       </p>
                                     </div>
                                   )}
+                                  {expert.cases && (
+                                    <div>
+                                      <p className="text-primary text-xs uppercase mb-1 opacity-70">🤖 Кейсы</p>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                        {expert.cases}
+                                      </p>
+                                    </div>
+                                  )}
                                   {expert.other_info && (
                                     <div>
-                                      <h4 className="text-xs font-semibold text-primary mb-1">Дополнительно:</h4>
+                                      <p className="text-primary text-xs uppercase mb-1 opacity-70">📌 Другое</p>
                                       <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                         {expert.other_info}
                                       </p>

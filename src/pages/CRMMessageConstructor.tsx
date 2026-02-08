@@ -126,7 +126,14 @@ const ALL_CRM_FIELDS: MessageField[] = [
   { key: 'expert_pseudonym', label: 'Псевдоним эксперта', icon: <User className="w-4 h-4" />, enabled: false, format: 'italic', category: 'expert' },
   { key: 'business_type', label: 'Тип бизнеса', icon: <Briefcase className="w-4 h-4" />, enabled: false, format: 'normal', category: 'other' },
   { key: 'classification_result', label: 'Результат классификации', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'italic', category: 'other' },
-  { key: 'business_description', label: 'Описание деятельности', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'normal', category: 'other' },
+  { key: 'business_description', label: 'Чем занимается', icon: <FileText className="w-4 h-4" />, enabled: true, format: 'normal', category: 'other' },
+  { key: 'first_name', label: 'Имя телеграм', icon: <User className="w-4 h-4" />, enabled: true, format: 'normal', category: 'other' },
+  { key: 'last_name', label: 'Фамилия телеграм', icon: <User className="w-4 h-4" />, enabled: true, format: 'normal', category: 'other' },
+  { key: 'current_step', label: 'Текущий шаг', icon: <Settings className="w-4 h-4" />, enabled: true, format: 'bold', category: 'other' },
+  { key: 'selected_tariff', label: 'Выбранный тариф', icon: <DollarSign className="w-4 h-4" />, enabled: true, format: 'bold', category: 'other' },
+  { key: 'tariff_price', label: 'Стоимость тарифа', icon: <DollarSign className="w-4 h-4" />, enabled: true, format: 'bold', category: 'other' },
+  { key: 'tariff_description', label: 'Описание тарифа', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'italic', category: 'other' },
+  { key: 'payment_model', label: 'Модель оплаты', icon: <DollarSign className="w-4 h-4" />, enabled: true, format: 'bold', category: 'other' },
   
   // Dates
   { key: 'calculator_date', label: 'Дата калькулятора', icon: <Calendar className="w-4 h-4" />, enabled: true, format: 'normal', category: 'dates' },
@@ -477,7 +484,7 @@ export function MessageConstructorForm({
     switch (format) {
       case 'bold': return `<b>${value}</b>`;
       case 'italic': return `<i>${value}</i>`;
-      case 'code': return `<code>${value}</code>`;
+      case 'code': return `\`\`\`\n${value}\n\`\`\``;
       case 'mono': return `<pre>${value}</pre>`;
       case 'quote': return `<blockquote>${value}</blockquote>`;
       case 'link': return `<a href="${value}">${value}</a>`;
@@ -624,7 +631,7 @@ export function MessageConstructorForm({
           {/* Fields by category */}
           <ScrollArea className="h-[400px] pr-4">
             <div className="space-y-6">
-              {(['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents'] as const).map(category => {
+              {(['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'] as const).map(category => {
                 const categoryFields = fields.filter(f => f.category === category);
                 if (categoryFields.length === 0) return null;
                 

@@ -23,13 +23,14 @@ import {
   Video,
   File,
   Plus,
-  Trash2
+  Trash2,
+  Save,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { 
-  getChatConstructorSettings, 
   type MessageField, 
   type TextFormat,
   type MediaAttachment,
@@ -59,6 +60,16 @@ interface Message {
   created_at: string;
 }
 
+interface ChatTemplate {
+  id: string;
+  name: string;
+  header_text: string | null;
+  footer_text: string | null;
+  fields: any;
+  media: any;
+  use_media_caption: boolean;
+}
+
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'pending':
@@ -83,6 +94,60 @@ const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
   album: '🗂 Альбом',
 };
 
+// Format value based on format type
+function formatChatValue(fmt: TextFormat, value: string, buttonText?: string): string {
+  switch (fmt) {
+    case 'bold': return `<b>${value}</b>`;
+    case 'italic': return `<i>${value}</i>`;
+    case 'code': return `\`\`\`${value}\`\`\``;
+    case 'mono': return `<pre>${value}</pre>`;
+    case 'quote': return `<blockquote>${value}</blockquote>`;
+    case 'link': return `<a href="${value}">${value}</a>`;
+    default: return value;
+  }
+}
+
+function buildMessageFromTemplate(template: ChatTemplate, clientData: Client): string {
+  const rawFields = template.fields;
+  let fields: any[] = [];
+
+  if (Array.isArray(rawFields)) {
+    fields = rawFields;
+  } else if (rawFields && typeof rawFields === 'object') {
+    fields = rawFields.fieldsList || [];
+  }
+
+  const enabledFields = fields.filter((f: any) => f.enabled);
+  const lines: string[] = [];
+
+  if (template.header_text) {
+    lines.push(template.header_text);
+    lines.push('');
+  }
+
+  for (const field of enabledFields) {
+    let value = (clientData as Record<string, string | null>)[field.key];
+
+    // Handle special fields
+    if (field.key === 'telegram_link') {
+      const tgUsername = clientData.telegram_client?.replace('@', '');
+      value = tgUsername ? `https://t.me/${tgUsername}` : null;
+    }
+
+    if (value) {
+      const formatted = formatChatValue(field.format, value, field.buttonText);
+      lines.push(`${field.label}: ${formatted}`);
+    }
+  }
+
+  if (template.footer_text) {
+    lines.push('');
+    lines.push(template.footer_text);
+  }
+
+  return lines.join('\n');
+}
+
 export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, clientName, clientData }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -90,6 +155,8 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
   const [showConstructor, setShowConstructor] = useState(false);
   const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [useMediaCaption, setUseMediaCaption] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch messages
@@ -106,6 +173,22 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       return data as Message[];
     },
     enabled: !!clientId,
+  });
+
+  // Fetch saved chat templates
+  const { data: templates, refetch: refetchTemplates } = useQuery({
+    queryKey: ['chat-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .select('*')
+        .eq('type', 'chat_message')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as ChatTemplate[];
+    },
   });
 
   // Realtime subscription
@@ -138,69 +221,55 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     }
   }, [messages]);
 
-  // Format value based on format type
-  const formatValue = (format: TextFormat, value: string, buttonText?: string): string => {
-    switch (format) {
-      case 'bold': return `<b>${value}</b>`;
-      case 'italic': return `<i>${value}</i>`;
-      case 'code': return `<code>${value}</code>`;
-      case 'mono': return `<pre>${value}</pre>`;
-      case 'quote': return `<blockquote>${value}</blockquote>`;
-      case 'link': return `<a href="${value}">${value}</a>`;
-      case 'inline_button': return `[${buttonText || value}]`;
-      case 'inline_button_link': return `[${buttonText || value}](${value})`;
-      default: return value;
+  // Apply a saved template
+  const applyTemplate = (templateId: string) => {
+    if (!clientData || !templates) return;
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+
+    const builtMessage = buildMessageFromTemplate(template, clientData);
+    setMessage(prev => prev ? `${prev}\n\n${builtMessage}` : builtMessage);
+
+    // Apply media if any
+    const rawFields = template.fields;
+    let templateMedia: MediaAttachment[] = [];
+    if (template.media && Array.isArray(template.media)) {
+      templateMedia = template.media;
     }
+    if (templateMedia.length > 0) {
+      setMedia(templateMedia);
+      setUseMediaCaption(template.use_media_caption || false);
+    }
+
+    toast({ title: 'Шаблон применён' });
   };
 
-  // Build message from constructor
-  const buildConstructorMessage = () => {
-    if (!clientData) return '';
-    
-    const settings = getChatConstructorSettings();
-    const enabledFields = settings.fields.filter(f => f.enabled);
-    const lines: string[] = [];
-    
-    if (settings.headerText) {
-      lines.push(settings.headerText);
-      lines.push('');
+  // Save current message as template
+  const saveAsTemplate = async () => {
+    if (!newTemplateName.trim()) {
+      toast({ title: 'Введите название шаблона', variant: 'destructive' });
+      return;
     }
-    
-    for (const field of enabledFields) {
-      const value = (clientData as Record<string, string | null>)[field.key];
-      if (value) {
-        let displayValue = value;
-        
-        // Handle special fields
-        if (field.key === 'telegram_link') {
-          const tgUsername = clientData.telegram_client?.replace('@', '');
-          displayValue = tgUsername ? `https://t.me/${tgUsername}` : '';
-        }
-        
-        if (displayValue) {
-          const formattedValue = formatValue(field.format, displayValue, field.buttonText);
-          lines.push(`${field.label}: ${formattedValue}`);
-        }
-      }
-    }
-    
-    if (settings.footerText) {
-      lines.push('');
-      lines.push(settings.footerText);
-    }
-    
-    return lines.join('\n');
-  };
-
-  const insertConstructorMessage = () => {
-    const constructedMessage = buildConstructorMessage();
-    setMessage(prev => prev ? `${prev}\n\n${constructedMessage}` : constructedMessage);
-    
-    // Also apply media settings
-    const settings = getChatConstructorSettings();
-    if (settings.media && settings.media.length > 0) {
-      setMedia(settings.media);
-      setUseMediaCaption(settings.useMediaCaption);
+    setIsSavingTemplate(true);
+    try {
+      const { error } = await supabase.from('notification_templates').insert([{
+        name: newTemplateName.trim(),
+        type: 'chat_message',
+        header_text: message,
+        footer_text: '',
+        fields: { fieldsList: [], inlineButtons: [] } as any,
+        media: (media.length > 0 ? media : []) as any,
+        use_media_caption: useMediaCaption,
+        is_active: true,
+      }]);
+      if (error) throw error;
+      setNewTemplateName('');
+      refetchTemplates();
+      toast({ title: 'Шаблон сохранён' });
+    } catch (err) {
+      toast({ title: 'Ошибка сохранения', variant: 'destructive' });
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -237,14 +306,8 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      if (response.data?.error) {
-        throw new Error(response.data.error);
-      }
-
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
       return response.data;
     },
     onSuccess: () => {
@@ -252,17 +315,10 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       setMedia([]);
       setUseMediaCaption(false);
       queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
-      toast({
-        title: 'Сообщение отправлено',
-        description: `Сообщение доставлено в Telegram`,
-      });
+      toast({ title: 'Сообщение отправлено' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Ошибка отправки',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Ошибка отправки', description: error.message, variant: 'destructive' });
       queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
     },
   });
@@ -270,11 +326,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
   const handleSend = () => {
     if (!message.trim() && media.filter(m => m.url.trim()).length === 0) return;
     if (!telegramId) {
-      toast({
-        title: 'Ошибка',
-        description: 'У клиента не указан Telegram ID',
-        variant: 'destructive',
-      });
+      toast({ title: 'Ошибка', description: 'У клиента не указан Telegram ID', variant: 'destructive' });
       return;
     }
     sendMutation.mutate(message.trim());
@@ -371,16 +423,50 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-2 space-y-3">
-          {/* Insert template */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={insertConstructorMessage}
-            className="w-full text-xs"
-            disabled={!clientData}
-          >
-            Вставить шаблон из настроек
-          </Button>
+          {/* Template selector */}
+          <div className="space-y-2">
+            <Label className="text-xs flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              Выбрать шаблон
+            </Label>
+            <Select onValueChange={applyTemplate}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Выберите шаблон..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates?.map(t => (
+                  <SelectItem key={t.id} value={t.id} className="text-xs">
+                    {t.name}
+                  </SelectItem>
+                ))}
+                {(!templates || templates.length === 0) && (
+                  <SelectItem value="__none" disabled className="text-xs text-muted-foreground">
+                    Нет сохранённых шаблонов
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Save as template */}
+          <div className="flex items-center gap-2">
+            <Input
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              placeholder="Название нового шаблона..."
+              className="h-7 text-xs flex-1"
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={saveAsTemplate}
+              disabled={isSavingTemplate || !newTemplateName.trim()}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              {isSavingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Сохранить
+            </Button>
+          </div>
           
           {/* Media attachments */}
           <div className="space-y-2">
