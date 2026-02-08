@@ -71,7 +71,11 @@ const CalculatorStep8: React.FC = () => {
   const [submitError, setSubmitError] = useState(false);
 
   const submitForm = async () => {
-    if (!formData) return;
+    if (!formData) {
+      console.error('submitForm: formData is null, cannot submit');
+      toast({ title: "Ошибка", description: "Нет данных для отправки. Пройдите все шаги калькулятора.", variant: "destructive" });
+      return;
+    }
     
     trackAction('submit_calculator', { page: '/calculator/step8', value: promoCode || 'no-promo' });
     saveSessionData({ ...formData, promoCode, step: 'submitted' } as any);
@@ -79,36 +83,43 @@ const CalculatorStep8: React.FC = () => {
     // Show success screen immediately
     setIsSubmitting(true);
     setIsComplete(true);
-    sessionStorage.removeItem('sav-calculator-data');
     
     const chatId = telegramProfile?.telegram_id 
       ? String(telegramProfile.telegram_id) 
       : Date.now().toString();
     
+    // Build payload with field name fallbacks
     const payload = {
       formUrl: FORM_URL,
       chat_id: chatId,
-      'ФИО': formData.fullName,
-      'Компания': formData.company,
-      'Продукт': formData.product,
-      'Город': formData.city,
-      'Подразделение': DEPARTMENT_LABELS[formData.department] || formData.department,
-      'Сотрудников': formData.employeeCount,
-      'Средняя ЗП': formData.averageSalary,
-      'Выбранный эксперт': formData.selectedExpert,
-      'Функционал': formData.functionality?.slice(0, 2000),
-      'Обслуживание': formData.maintenance,
+      'ФИО': formData.fullName || '',
+      'Компания': formData.company || '',
+      'Продукт': formData.product || '',
+      'Город': formData.city || '',
+      'Подразделение': DEPARTMENT_LABELS[formData.department] || formData.department || '',
+      'Сотрудников': formData.employeeCount || '',
+      'Средняя ЗП': formData.averageSalary || '',
+      'Выбранный эксперт': formData.selectedExpert || 'Dr.White',
+      'Функционал': (formData.functionality || '').slice(0, 2000),
+      'Обслуживание': formData.maintenance || 'Нет',
       'ПРОМОКОД': promoCode || ''
     };
 
+    console.log('Calculator POST payload:', JSON.stringify(payload));
+
     // Send POST in background - don't block the success screen
     try {
-      await fetch(SCRIPT_URL, {
+      const response = await fetch(SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload)
       });
+      
+      console.log('Calculator POST sent, response type:', response.type);
+      
+      // Clear sessionStorage only after successful send
+      sessionStorage.removeItem('sav-calculator-data');
       
       toast({
         title: "Расчёт отправлен!",

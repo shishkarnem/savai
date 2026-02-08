@@ -34,14 +34,16 @@ const AISellerPlans: React.FC = () => {
   // Helper to get business info from sessionStorage
   const getBusinessInfo = () => {
     const stored = sessionStorage.getItem('sav-business-info');
-    if (!stored) return { type: null, classification: null };
+    const businessDescription = sessionStorage.getItem('sav-business-description');
+    if (!stored) return { type: null, classification: null, businessDescription: null };
     try {
       const info = JSON.parse(stored);
       return {
         type: `${info.segment} / ${info.category} / ${info.sphere}`,
         classification: info.description || null,
+        businessDescription: businessDescription || info.description || null,
       };
-    } catch { return { type: null, classification: null }; }
+    } catch { return { type: null, classification: null, businessDescription: null }; }
   };
 
   useEffect(() => {

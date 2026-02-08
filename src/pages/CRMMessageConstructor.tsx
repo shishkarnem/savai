@@ -126,6 +126,7 @@ const ALL_CRM_FIELDS: MessageField[] = [
   { key: 'expert_pseudonym', label: 'Псевдоним эксперта', icon: <User className="w-4 h-4" />, enabled: false, format: 'italic', category: 'expert' },
   { key: 'business_type', label: 'Тип бизнеса', icon: <Briefcase className="w-4 h-4" />, enabled: false, format: 'normal', category: 'other' },
   { key: 'classification_result', label: 'Результат классификации', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'italic', category: 'other' },
+  { key: 'business_description', label: 'Описание деятельности', icon: <FileText className="w-4 h-4" />, enabled: false, format: 'normal', category: 'other' },
   
   // Dates
   { key: 'calculator_date', label: 'Дата калькулятора', icon: <Calendar className="w-4 h-4" />, enabled: true, format: 'normal', category: 'dates' },
@@ -188,14 +189,27 @@ async function loadSettingsFromDB(type: string): Promise<{ settings: MessageCons
       .maybeSingle();
     
     if (!error && data) {
+      // Handle fields format: could be array (old) or object with fieldsList+inlineButtons (new)
+      const rawFields = data.fields as any;
+      let fieldsList: any[] = [];
+      let inlineButtons: InlineButtonRow[] = [];
+      
+      if (Array.isArray(rawFields)) {
+        fieldsList = rawFields;
+      } else if (rawFields && typeof rawFields === 'object') {
+        fieldsList = rawFields.fieldsList || [];
+        inlineButtons = rawFields.inlineButtons || [];
+      }
+
       return {
         templateId: data.id,
         settings: {
-          fields: (data.fields as any) || [],
+          fields: fieldsList,
           headerText: data.header_text || '',
           footerText: data.footer_text || '',
           media: (data.media as any) || [],
           useMediaCaption: data.use_media_caption || false,
+          inlineButtons,
         },
       };
     }
@@ -212,12 +226,18 @@ async function saveSettingsToDB(
   settings: MessageConstructorSettings,
   templateId: string | null
 ): Promise<string | null> {
+  // Store fields and inline buttons together in the fields JSON
+  const fieldsData = {
+    fieldsList: settings.fields,
+    inlineButtons: settings.inlineButtons || [],
+  };
+
   const templateData = {
     name,
     type,
     header_text: settings.headerText,
     footer_text: settings.footerText,
-    fields: settings.fields as any,
+    fields: fieldsData as any,
     media: settings.media as any,
     use_media_caption: settings.useMediaCaption,
     is_active: true,
@@ -338,6 +358,7 @@ export function MessageConstructorForm({
   const [useMediaCaption, setUseMediaCaption] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
 
   // Load saved settings from DB first, fallback to localStorage
   useEffect(() => {
@@ -353,9 +374,9 @@ export function MessageConstructorForm({
         setFooterText(settings.footerText || '');
         setMedia(settings.media || []);
         setUseMediaCaption(settings.useMediaCaption || false);
+        setInlineButtons(settings.inlineButtons || []);
         setTemplateId(dbId);
       } else {
-        // Fallback to localStorage
         const saved = localStorage.getItem(storageKey);
         if (saved) {
           try {
@@ -369,6 +390,7 @@ export function MessageConstructorForm({
             setFooterText(parsed.footerText || '');
             setMedia(parsed.media || []);
             setUseMediaCaption(parsed.useMediaCaption || false);
+            setInlineButtons(parsed.inlineButtons || []);
           } catch (e) {
             console.error('Failed to parse settings:', e);
           }
@@ -417,7 +439,7 @@ export function MessageConstructorForm({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const settings = { fields, headerText, footerText, media, useMediaCaption };
+      const settings = { fields, headerText, footerText, media, useMediaCaption, inlineButtons };
       // Save to DB
       const newId = await saveSettingsToDB(dbType, dbName, settings, templateId);
       if (newId) setTemplateId(newId);
@@ -443,6 +465,7 @@ export function MessageConstructorForm({
     setFooterText('');
     setMedia([]);
     setUseMediaCaption(false);
+    setInlineButtons([]);
     localStorage.removeItem(storageKey);
     toast({
       title: 'Настройки сброшены',
@@ -687,11 +710,16 @@ export function MessageConstructorForm({
               rows={3}
             />
           </div>
+
+          <Separator />
+
+          {/* Inline Buttons */}
+          <InlineButtonBuilder rows={inlineButtons} onChange={setInlineButtons} />
         </div>
 
         {/* Preview Panel */}
         <div className="space-y-4">
-          <div className="bg-[#1a1a1a] rounded-lg p-4 border border-border max-h-[400px] overflow-auto">
+          <div className="bg-[#1a1a1a] rounded-lg p-4 border border-border max-h-[500px] overflow-auto">
             {media.length > 0 && (
               <div className="mb-3 p-2 bg-muted/20 rounded border border-dashed border-muted-foreground/30">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -709,6 +737,26 @@ export function MessageConstructorForm({
             )}
             <pre className="text-sm text-foreground whitespace-pre-wrap font-sans" 
                  dangerouslySetInnerHTML={{ __html: generatePreview() }} />
+            
+            {/* Inline buttons preview */}
+            {inlineButtons.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {inlineButtons.map((row) => (
+                  <div key={row.id} className="flex gap-1">
+                    {row.buttons.map((btn) => (
+                      <div
+                        key={btn.id}
+                        className="flex-1 text-center py-1.5 px-2 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-xs text-[#3390ec] truncate"
+                      >
+                        {btn.type === 'link' && '🔗 '}
+                        {btn.type === 'webapp' && '🌐 '}
+                        {btn.text}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           <div className="p-4 bg-muted/30 rounded-lg">
