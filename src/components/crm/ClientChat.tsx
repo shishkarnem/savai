@@ -95,14 +95,14 @@ const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
 };
 
 // Format value based on format type
-function formatChatValue(fmt: TextFormat, value: string, buttonText?: string): string {
+function formatChatValue(fmt: TextFormat, value: string, buttonText?: string, linkText?: string): string {
   switch (fmt) {
     case 'bold': return `<b>${value}</b>`;
     case 'italic': return `<i>${value}</i>`;
-    case 'code': return `\`\`\`${value}\`\`\``;
-    case 'mono': return `<pre>${value}</pre>`;
+    case 'code': return `\`\`\`\n${value}\n\`\`\``;
+    case 'mono': return `<code>${value}</code>`;
     case 'quote': return `<blockquote>${value}</blockquote>`;
-    case 'link': return `<a href="${value}">${value}</a>`;
+    case 'link': return linkText ? `<a href="${value}">${linkText}</a>` : `<a href="${value}">${value}</a>`;
     default: return value;
   }
 }
@@ -135,7 +135,7 @@ function buildMessageFromTemplate(template: ChatTemplate, clientData: Client): s
     }
 
     if (value) {
-      const formatted = formatChatValue(field.format, value, field.buttonText);
+      const formatted = formatChatValue(field.format, value, field.buttonText, field.linkText);
       lines.push(`${field.label}: ${formatted}`);
     }
   }
