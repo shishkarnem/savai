@@ -36,6 +36,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
+import MacroEditor from '@/components/crm/MacroEditor';
 
 // Text formatting types
 export type TextFormat = 'normal' | 'bold' | 'italic' | 'code' | 'mono' | 'quote' | 'link' | 'inline_button' | 'inline_button_link';
@@ -75,13 +76,14 @@ export interface MessageField {
   category: 'client' | 'project' | 'finance' | 'expert' | 'dates' | 'protalk' | 'documents' | 'other';
   customLabel?: string;
   buttonText?: string;
+  linkText?: string;
 }
 
 // All CRM fields from database
 const ALL_CRM_FIELDS: MessageField[] = [
   // Client info
   { key: 'full_name', label: 'ФИО клиента', icon: <User className="w-4 h-4" />, enabled: true, format: 'bold', category: 'client' },
-  { key: 'telegram_link', label: 'Ссылка на Telegram', icon: <Send className="w-4 h-4" />, enabled: true, format: 'link', category: 'client' },
+  { key: 'telegram_link', label: 'Ссылка на Telegram', icon: <Send className="w-4 h-4" />, enabled: true, format: 'link', category: 'client', linkText: 'Написать в Telegram' },
   { key: 'telegram_id', label: 'Telegram ID', icon: <Hash className="w-4 h-4" />, enabled: true, format: 'code', category: 'client' },
   { key: 'telegram_client', label: 'Telegram клиента', icon: <User className="w-4 h-4" />, enabled: false, format: 'normal', category: 'client' },
   { key: 'city', label: 'Город', icon: <MapPin className="w-4 h-4" />, enabled: true, format: 'normal', category: 'client' },
@@ -183,6 +185,7 @@ export interface MessageConstructorSettings {
   media: MediaAttachment[];
   useMediaCaption: boolean;
   inlineButtons?: InlineButtonRow[];
+  macroText?: string;
 }
 
 // Load settings from DB first, fallback to localStorage
@@ -217,6 +220,7 @@ async function loadSettingsFromDB(type: string): Promise<{ settings: MessageCons
           media: (data.media as any) || [],
           useMediaCaption: data.use_media_caption || false,
           inlineButtons,
+          macroText: (rawFields as any)?.macroText || undefined,
         },
       };
     }
@@ -237,6 +241,7 @@ async function saveSettingsToDB(
   const fieldsData = {
     fieldsList: settings.fields,
     inlineButtons: settings.inlineButtons || [],
+    macroText: settings.macroText || '',
   };
 
   const templateData = {
@@ -281,7 +286,7 @@ export function getMessageConstructorSettings(): MessageConstructorSettings {
       const parsed = JSON.parse(saved);
       const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
         const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
-        return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
+        return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText, linkText: savedField.linkText } : defaultField;
       });
       return {
         fields: mergedFields,
@@ -310,7 +315,7 @@ export function getChatConstructorSettings(): MessageConstructorSettings {
       const parsed = JSON.parse(saved);
       const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
         const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
-        return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
+        return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText, linkText: savedField.linkText } : defaultField;
       });
       return {
         fields: mergedFields,
@@ -366,6 +371,7 @@ export function MessageConstructorForm({
   const [isSaving, setIsSaving] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
+  const [macroText, setMacroText] = useState('');
 
   // Load saved settings from DB first, fallback to localStorage
   useEffect(() => {
@@ -374,7 +380,7 @@ export function MessageConstructorForm({
       if (settings && settings.fields?.length > 0) {
         const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
           const savedField = settings.fields?.find((f: any) => f.key === defaultField.key);
-          return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: (savedField as any).customLabel, buttonText: savedField.buttonText } : defaultField;
+          return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: (savedField as any).customLabel, buttonText: savedField.buttonText, linkText: (savedField as any).linkText } : defaultField;
         });
         setFields(mergedFields);
         setHeaderText(settings.headerText || defaultHeaderText);
@@ -382,6 +388,7 @@ export function MessageConstructorForm({
         setMedia(settings.media || []);
         setUseMediaCaption(settings.useMediaCaption || false);
         setInlineButtons(settings.inlineButtons || []);
+        setMacroText(settings.macroText || '');
         setTemplateId(dbId);
       } else {
         const saved = localStorage.getItem(storageKey);
@@ -390,7 +397,7 @@ export function MessageConstructorForm({
             const parsed = JSON.parse(saved);
             const mergedFields = ALL_CRM_FIELDS.map(defaultField => {
               const savedField = parsed.fields?.find((f: MessageField) => f.key === defaultField.key);
-              return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText } : defaultField;
+              return savedField ? { ...defaultField, enabled: savedField.enabled, format: savedField.format || defaultField.format, customLabel: savedField.customLabel, buttonText: savedField.buttonText, linkText: savedField.linkText } : defaultField;
             });
             setFields(mergedFields);
             setHeaderText(parsed.headerText || defaultHeaderText);
@@ -398,6 +405,7 @@ export function MessageConstructorForm({
             setMedia(parsed.media || []);
             setUseMediaCaption(parsed.useMediaCaption || false);
             setInlineButtons(parsed.inlineButtons || []);
+            setMacroText(parsed.macroText || '');
           } catch (e) {
             console.error('Failed to parse settings:', e);
           }
@@ -425,6 +433,12 @@ export function MessageConstructorForm({
     ));
   };
 
+  const updateFieldLinkText = (key: string, linkText: string) => {
+    setFields(prev => prev.map(f => 
+      f.key === key ? { ...f, linkText } : f
+    ));
+  };
+
   const addMedia = () => {
     setMedia(prev => [...prev, {
       id: crypto.randomUUID(),
@@ -446,7 +460,7 @@ export function MessageConstructorForm({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const settings = { fields, headerText, footerText, media, useMediaCaption, inlineButtons };
+      const settings = { fields, headerText, footerText, media, useMediaCaption, inlineButtons, macroText };
       // Save to DB
       const newId = await saveSettingsToDB(dbType, dbName, settings, templateId);
       if (newId) setTemplateId(newId);
@@ -473,29 +487,15 @@ export function MessageConstructorForm({
     setMedia([]);
     setUseMediaCaption(false);
     setInlineButtons([]);
+    setMacroText('');
     localStorage.removeItem(storageKey);
     toast({
       title: 'Настройки сброшены',
     });
   };
 
-  // Format value for preview
-  const formatValue = (format: TextFormat, value: string, buttonText?: string): string => {
-    switch (format) {
-      case 'bold': return `<b>${value}</b>`;
-      case 'italic': return `<i>${value}</i>`;
-      case 'code': return `\`\`\`\n${value}\n\`\`\``;
-      case 'mono': return `<pre>${value}</pre>`;
-      case 'quote': return `<blockquote>${value}</blockquote>`;
-      case 'link': return `<a href="${value}">${value}</a>`;
-      case 'inline_button': return `[${buttonText || value}]`;
-      case 'inline_button_link': return `[${buttonText || value}](${value})`;
-      default: return value;
-    }
-  };
-
-  // Generate preview message
-  const generatePreview = () => {
+  // Generate macro text from enabled fields (auto-generate starting template)
+  const generateFromFields = () => {
     const enabledFields = fields.filter(f => f.enabled);
     const lines: string[] = [];
     
@@ -504,28 +504,28 @@ export function MessageConstructorForm({
       lines.push('');
     }
     
-    // Group by category
-    const categories = ['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'];
-    for (const category of categories) {
-      const categoryFields = enabledFields.filter(f => f.category === category);
-      if (categoryFields.length > 0) {
-        lines.push(`${CATEGORY_LABELS[category]}:`);
-        for (const field of categoryFields) {
-          const sampleValue = field.key === 'telegram_link' ? 't.me/username' 
-            : field.key === 'last_100_messages' ? '[История 100 сообщений...]'
-            : '[значение]';
-          const formattedValue = formatValue(field.format, sampleValue, field.buttonText);
-          lines.push(`  • ${field.label}: ${formattedValue}`);
-        }
-        lines.push('');
+    for (const field of enabledFields) {
+      const macro = `{{${field.key}}}`;
+      let formatted: string;
+      if (field.format === 'bold') formatted = `<b>${field.label}:</b> ${macro}`;
+      else if (field.format === 'italic') formatted = `${field.label}: <i>${macro}</i>`;
+      else if (field.format === 'code') formatted = `${field.label}:\n\`\`\`\n${macro}\n\`\`\``;
+      else if (field.format === 'mono') formatted = `${field.label}: <code>${macro}</code>`;
+      else if (field.format === 'quote') formatted = `${field.label}:\n<blockquote>${macro}</blockquote>`;
+      else if (field.format === 'link') {
+        const linkLabel = field.linkText || field.label;
+        formatted = `<a href="${macro}">${linkLabel}</a>`;
       }
+      else formatted = `${field.label}: ${macro}`;
+      lines.push(formatted);
     }
     
     if (footerText) {
+      lines.push('');
       lines.push(footerText);
     }
     
-    return lines.join('\n');
+    setMacroText(lines.join('\n'));
   };
 
   return (
@@ -693,6 +693,18 @@ export function MessageConstructorForm({
                                   />
                                 </div>
                               )}
+
+                              {field.format === 'link' && (
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs text-muted-foreground w-16">Текст:</Label>
+                                  <Input
+                                    value={field.linkText || ''}
+                                    onChange={(e) => updateFieldLinkText(field.key, e.target.value)}
+                                    placeholder="Текст ссылки (отображается вместо URL)"
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -703,6 +715,8 @@ export function MessageConstructorForm({
               })}
             </div>
           </ScrollArea>
+
+          <Separator />
 
           <Separator />
 
@@ -720,65 +734,45 @@ export function MessageConstructorForm({
 
           <Separator />
 
-          {/* Inline Buttons */}
-          <InlineButtonBuilder rows={inlineButtons} onChange={setInlineButtons} />
+          <Button variant="outline" size="sm" onClick={generateFromFields} className="w-full gap-2">
+            <Eye className="w-4 h-4" />
+            Сгенерировать макро-текст из включённых полей
+          </Button>
         </div>
 
-        {/* Preview Panel */}
+        {/* Macro Editor Panel */}
         <div className="space-y-4">
-          <div className="bg-[#1a1a1a] rounded-lg p-4 border border-border max-h-[500px] overflow-auto">
-            {media.length > 0 && (
-              <div className="mb-3 p-2 bg-muted/20 rounded border border-dashed border-muted-foreground/30">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {media[0].type === 'photo' && <Image className="w-4 h-4" />}
-                  {media[0].type === 'video' && <Video className="w-4 h-4" />}
-                  {media[0].type === 'document' && <File className="w-4 h-4" />}
-                  {media[0].type === 'album' && <Image className="w-4 h-4" />}
-                  <span>
-                    {media.length === 1 
-                      ? MEDIA_TYPE_LABELS[media[0].type]
-                      : `Альбом (${media.length} файлов)`}
-                  </span>
+          <MacroEditor
+            value={macroText}
+            onChange={setMacroText}
+            fields={fields}
+          />
+
+          <Separator />
+
+          {/* Inline Buttons */}
+          <InlineButtonBuilder rows={inlineButtons} onChange={setInlineButtons} />
+
+          {/* Inline buttons preview */}
+          {inlineButtons.length > 0 && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3 space-y-1">
+              <Label className="text-xs text-muted-foreground mb-1 block">Превью кнопок:</Label>
+              {inlineButtons.map((row) => (
+                <div key={row.id} className="flex gap-1">
+                  {row.buttons.map((btn) => (
+                    <div
+                      key={btn.id}
+                      className="flex-1 text-center py-1.5 px-2 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-xs text-[#3390ec] truncate"
+                    >
+                      {btn.type === 'link' && '🔗 '}
+                      {btn.type === 'webapp' && '🌐 '}
+                      {btn.text}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
-            <pre className="text-sm text-foreground whitespace-pre-wrap font-sans" 
-                 dangerouslySetInnerHTML={{ __html: generatePreview() }} />
-            
-            {/* Inline buttons preview */}
-            {inlineButtons.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {inlineButtons.map((row) => (
-                  <div key={row.id} className="flex gap-1">
-                    {row.buttons.map((btn) => (
-                      <div
-                        key={btn.id}
-                        className="flex-1 text-center py-1.5 px-2 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-xs text-[#3390ec] truncate"
-                      >
-                        {btn.type === 'link' && '🔗 '}
-                        {btn.type === 'webapp' && '🌐 '}
-                        {btn.text}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h4 className="font-medium text-sm mb-2">Форматы текста:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div>• <b>Жирный</b> — &lt;b&gt;текст&lt;/b&gt;</div>
-              <div>• <i>Курсив</i> — &lt;i&gt;текст&lt;/i&gt;</div>
-              <div>• <code>Код</code> — &lt;code&gt;текст&lt;/code&gt;</div>
-              <div>• <code>Моно</code> — &lt;pre&gt;текст&lt;/pre&gt;</div>
-              <div>• Цитата — &lt;blockquote&gt;</div>
-              <div>• Ссылка — &lt;a href&gt;</div>
-              <div>• Кнопка — inline keyboard</div>
-              <div>• Кнопка-ссылка — URL кнопка</div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
