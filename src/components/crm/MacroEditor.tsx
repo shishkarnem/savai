@@ -2,9 +2,11 @@ import React, { useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import {
   Bold,
   Italic,
@@ -14,8 +16,12 @@ import {
   Terminal,
   Plus,
   Type,
+  Image,
+  Video,
+  File,
+  Trash2,
 } from 'lucide-react';
-import type { MessageField, TextFormat } from '@/pages/CRMMessageConstructor';
+import type { MessageField, TextFormat, MediaType, MediaAttachment } from '@/pages/CRMMessageConstructor';
 
 const CATEGORY_LABELS: Record<string, string> = {
   client: '👤 Клиент',
@@ -28,10 +34,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: '📌 Другое',
 };
 
+const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
+  photo: '🖼 Фото',
+  video: '🎬 Видео',
+  document: '📄 Документ',
+  album: '🗂 Альбом',
+};
+
 interface MacroEditorProps {
   value: string;
   onChange: (value: string) => void;
   fields: MessageField[];
+  media?: MediaAttachment[];
+  onMediaChange?: (media: MediaAttachment[]) => void;
+  useMediaCaption?: boolean;
+  onUseMediaCaptionChange?: (v: boolean) => void;
+  /** Show compact layout for chat sidebar */
+  compact?: boolean;
 }
 
 /** Wraps `text` in the Telegram-HTML tag for `format`. */
@@ -54,10 +73,18 @@ function wrapWithFormat(text: string, format: TextFormat, linkText?: string): st
   }
 }
 
-const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) => {
+const MacroEditor: React.FC<MacroEditorProps> = ({
+  value,
+  onChange,
+  fields,
+  media = [],
+  onMediaChange,
+  useMediaCaption = false,
+  onUseMediaCaptionChange,
+  compact = false,
+}) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /** Insert text at cursor position in the textarea. */
   const insertAtCursor = useCallback(
     (insertion: string) => {
       const ta = textareaRef.current;
@@ -69,7 +96,6 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
       const end = ta.selectionEnd;
       const newVal = value.slice(0, start) + insertion + value.slice(end);
       onChange(newVal);
-      // Restore cursor after insertion
       requestAnimationFrame(() => {
         ta.focus();
         const cursorPos = start + insertion.length;
@@ -79,7 +105,6 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
     [value, onChange],
   );
 
-  /** Wrap the current selection with a formatting tag. */
   const wrapSelection = useCallback(
     (format: TextFormat) => {
       const ta = textareaRef.current;
@@ -98,7 +123,6 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
     [value, onChange],
   );
 
-  /** Insert a field macro like {{field_key}} with formatting applied. */
   const insertFieldMacro = useCallback(
     (field: MessageField) => {
       const macro = `{{${field.key}}}`;
@@ -108,7 +132,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
         const linkText = field.linkText || field.label;
         insertion = `<a href="${macro}">${linkText}</a>`;
       } else if (field.format === 'inline_button' || field.format === 'inline_button_link') {
-        insertion = macro; // buttons are handled separately
+        insertion = macro;
       } else if (field.format !== 'normal') {
         insertion = wrapWithFormat(macro, field.format);
       } else {
@@ -120,6 +144,26 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
     [insertAtCursor],
   );
 
+  // Media helpers
+  const addMedia = () => {
+    if (!onMediaChange) return;
+    onMediaChange([...media, { id: crypto.randomUUID(), type: 'photo', url: '' }]);
+  };
+
+  const updateMedia = (id: string, updates: Partial<MediaAttachment>) => {
+    if (!onMediaChange) return;
+    onMediaChange(media.map(m => m.id === id ? { ...m, ...updates } : m));
+  };
+
+  const removeMedia = (id: string) => {
+    if (!onMediaChange) return;
+    onMediaChange(media.filter(m => m.id !== id));
+  };
+
+  const hasMedia = media.some(m => m.url.trim());
+  const charLimit = hasMedia && useMediaCaption ? 1000 : 4000;
+  const charCount = value.length;
+
   // Group fields by category
   const categories = ['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'] as const;
   const groupedFields = categories
@@ -130,69 +174,37 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
     }))
     .filter((g) => g.fields.length > 0);
 
+  const btnSize = compact ? 'h-6 px-1.5 text-[10px]' : 'h-7 px-2 text-xs';
+  const iconSize = compact ? 'w-3 h-3' : 'w-3.5 h-3.5';
+
   return (
-    <div className="space-y-3">
-      <Label className="text-sm font-medium flex items-center gap-2">
-        <Type className="w-4 h-4" />
+    <div className="space-y-2">
+      <Label className={`${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center gap-2`}>
+        <Type className={iconSize} />
         Макро-редактор сообщения
       </Label>
 
       {/* Format toolbar */}
-      <div className="flex items-center gap-1 p-1 border border-border rounded-lg bg-muted/30 flex-wrap">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1 font-bold"
-          onClick={() => wrapSelection('bold')}
-          title="Жирный <b>"
-        >
-          <Bold className="w-3.5 h-3.5" />
+      <div className="flex items-center gap-0.5 p-1 border border-border rounded-lg bg-muted/30 flex-wrap">
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 font-bold`} onClick={() => wrapSelection('bold')} title="Жирный <b>">
+          <Bold className={iconSize} />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1 italic"
-          onClick={() => wrapSelection('italic')}
-          title="Курсив <i>"
-        >
-          <Italic className="w-3.5 h-3.5" />
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 italic`} onClick={() => wrapSelection('italic')} title="Курсив <i>">
+          <Italic className={iconSize} />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1 font-mono"
-          onClick={() => wrapSelection('code')}
-          title="Код ``` (тройные обратные кавычки)"
-        >
-          <Code className="w-3.5 h-3.5" />
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 font-mono`} onClick={() => wrapSelection('code')} title="Код ```">
+          <Code className={iconSize} />
           <span>```</span>
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1"
-          onClick={() => wrapSelection('mono')}
-          title="Моноширинный <code>"
-        >
-          <Terminal className="w-3.5 h-3.5" />
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5`} onClick={() => wrapSelection('mono')} title="Моноширинный <code>">
+          <Terminal className={iconSize} />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1"
-          onClick={() => wrapSelection('quote')}
-          title="Цитата <blockquote>"
-        >
-          <Quote className="w-3.5 h-3.5" />
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5`} onClick={() => wrapSelection('quote')} title="Цитата <blockquote>">
+          <Quote className={iconSize} />
         </Button>
 
-        {/* Link insertion with popover for link text */}
         <LinkInsertButton
+          compact={compact}
           onInsert={(url, text) => {
             const ta = textareaRef.current;
             if (!ta) return;
@@ -201,24 +213,16 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
             const end = ta.selectionEnd;
             const newVal = value.slice(0, start) + insertion + value.slice(end);
             onChange(newVal);
-            requestAnimationFrame(() => {
-              ta.focus();
-            });
+            requestAnimationFrame(() => ta.focus());
           }}
         />
 
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-4 bg-border mx-0.5" />
 
-        {/* Macro insertion dropdown */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
+            <Button type="button" variant="outline" size="sm" className={`${btnSize} gap-0.5`}>
+              <Plus className={iconSize} />
               Макрос
             </Button>
           </PopoverTrigger>
@@ -254,18 +258,99 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
         </Popover>
       </div>
 
-      {/* Editable textarea */}
+      {/* Textarea */}
       <Textarea
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Введите текст сообщения с макросами, например: {{full_name}}, {{tariff}}..."
-        className="min-h-[200px] font-mono text-sm resize-y"
+        className={`${compact ? 'min-h-[100px]' : 'min-h-[200px]'} font-mono text-sm resize-y`}
       />
 
-      <div className="text-[10px] text-muted-foreground space-y-1">
+      {/* Char count */}
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] text-muted-foreground">
+          <b>Разделители:</b> ✂️✂️✂️ или :: — разбивают на отдельные сообщения
+        </div>
+        <span className={`text-[10px] ${charCount > charLimit ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+          {charCount}/{charLimit}
+          {charCount > charLimit && ` (будет разделено)`}
+        </span>
+      </div>
+
+      {/* Media section */}
+      {onMediaChange && (
+        <div className="space-y-2 border-t border-border pt-2">
+          <div className="flex items-center justify-between">
+            <Label className={`${compact ? 'text-[10px]' : 'text-xs'} flex items-center gap-1`}>
+              <Image className={iconSize} />
+              Медиафайлы
+            </Label>
+            <Button variant="ghost" size="sm" onClick={addMedia} className={`${btnSize} gap-0.5`}>
+              <Plus className={iconSize} />
+              Добавить
+            </Button>
+          </div>
+
+          {media.length > 0 && onUseMediaCaptionChange && (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={useMediaCaption}
+                onCheckedChange={onUseMediaCaptionChange}
+                id="macroMediaCaption"
+                className="scale-75"
+              />
+              <Label htmlFor="macroMediaCaption" className="text-[10px]">
+                Текст как подпись к медиа (лимит 1000 символов)
+              </Label>
+            </div>
+          )}
+
+          {media.map((m) => (
+            <div key={m.id} className="flex items-center gap-1.5">
+              <Select value={m.type} onValueChange={(v: MediaType) => updateMedia(m.id, { type: v })}>
+                <SelectTrigger className="w-20 h-7 text-[10px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(MEDIA_TYPE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                value={m.url}
+                onChange={(e) => updateMedia(m.id, { url: e.target.value })}
+                placeholder="URL или file_id"
+                className="flex-1 h-7 text-[10px]"
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeMedia(m.id)}>
+                <Trash2 className="w-3 h-3 text-destructive" />
+              </Button>
+            </div>
+          ))}
+
+          {/* Media preview */}
+          {hasMedia && (
+            <div className="flex items-center gap-2 p-1.5 bg-muted/30 rounded text-[10px] text-muted-foreground">
+              {media[0].type === 'photo' && <Image className="w-3 h-3" />}
+              {media[0].type === 'video' && <Video className="w-3 h-3" />}
+              {media[0].type === 'document' && <File className="w-3 h-3" />}
+              {media[0].type === 'album' && <Image className="w-3 h-3" />}
+              <span>
+                {media.filter(m => m.url.trim()).length === 1
+                  ? MEDIA_TYPE_LABELS[media[0].type]
+                  : `Альбом (${media.filter(m => m.url.trim()).length} файлов)`}
+              </span>
+              {useMediaCaption && <span className="text-primary">+ подпись</span>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="text-[10px] text-muted-foreground space-y-0.5">
         <p>
-          <b>Макросы:</b> {`{{field_key}}`} — подставляются автоматически при отправке.
+          <b>Макросы:</b> {`{{field_key}}`} — подставляются при отправке.
         </p>
         <p>
           <b>Форматы:</b> {'<b>жирный</b>'}, {'<i>курсив</i>'}, {'```код```'},{' '}
@@ -277,8 +362,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({ value, onChange, fields }) =>
   );
 };
 
-/** Small popover button for inserting links with custom text. */
-function LinkInsertButton({ onInsert }: { onInsert: (url: string, text: string) => void }) {
+function LinkInsertButton({ onInsert, compact = false }: { onInsert: (url: string, text: string) => void; compact?: boolean }) {
   const [url, setUrl] = React.useState('');
   const [text, setText] = React.useState('');
   const [open, setOpen] = React.useState(false);
@@ -292,37 +376,22 @@ function LinkInsertButton({ onInsert }: { onInsert: (url: string, text: string) 
     }
   };
 
+  const btnSize = compact ? 'h-6 px-1.5 text-[10px]' : 'h-7 px-2 text-xs';
+  const iconSize = compact ? 'w-3 h-3' : 'w-3.5 h-3.5';
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs gap-1"
-          title="Ссылка <a href>"
-        >
-          <Link className="w-3.5 h-3.5" />
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5`} title="Ссылка <a href>">
+          <Link className={iconSize} />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 space-y-2" align="start">
         <Label className="text-xs">Текст ссылки</Label>
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Написать нам"
-          className="h-7 text-xs"
-        />
+        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать нам" className="h-7 text-xs" />
         <Label className="text-xs">URL или макрос</Label>
-        <Input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://t.me/... или {{telegram_link}}"
-          className="h-7 text-xs"
-        />
-        <Button size="sm" className="w-full h-7 text-xs" onClick={handleInsert}>
-          Вставить ссылку
-        </Button>
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://t.me/... или {{telegram_link}}" className="h-7 text-xs" />
+        <Button size="sm" className="w-full h-7 text-xs" onClick={handleInsert}>Вставить ссылку</Button>
       </PopoverContent>
     </Popover>
   );
