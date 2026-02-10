@@ -2,12 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
@@ -19,27 +17,36 @@ import {
   CheckCheck,
   Settings,
   ChevronDown,
-  Image,
-  Video,
-  File,
-  Plus,
-  Trash2,
+  FileText,
   Save,
-  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import MacroEditor from '@/components/crm/MacroEditor';
 import { 
   type MessageField, 
-  type TextFormat,
   type MediaAttachment,
-  type MediaType,
-  FORMAT_LABELS
 } from '@/pages/CRMMessageConstructor';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Client = Tables<'clients'>;
+
+// Minimal field set for chat macro editor
+const CHAT_FIELDS: MessageField[] = [
+  { key: 'full_name', label: 'ФИО клиента', icon: '👤', enabled: true, format: 'bold', category: 'client' },
+  { key: 'telegram_link', label: 'Ссылка на Telegram', icon: '📨', enabled: true, format: 'link', category: 'client', linkText: 'Написать в Telegram' },
+  { key: 'telegram_id', label: 'Telegram ID', icon: '#️⃣', enabled: true, format: 'code', category: 'client' },
+  { key: 'telegram_client', label: 'Telegram клиента', icon: '👤', enabled: false, format: 'normal', category: 'client' },
+  { key: 'city', label: 'Город', icon: '📍', enabled: false, format: 'normal', category: 'client' },
+  { key: 'status', label: 'Статус', icon: '⚙️', enabled: false, format: 'bold', category: 'client' },
+  { key: 'comment', label: 'Комментарий', icon: '📝', enabled: false, format: 'italic', category: 'client' },
+  { key: 'project', label: 'Проект', icon: '📂', enabled: false, format: 'bold', category: 'project' },
+  { key: 'product', label: 'Продукт', icon: '📦', enabled: false, format: 'normal', category: 'project' },
+  { key: 'tariff', label: 'Тариф', icon: '💰', enabled: false, format: 'bold', category: 'finance' },
+  { key: 'sav_cost', label: 'Стоимость SAV', icon: '💵', enabled: false, format: 'bold', category: 'finance' },
+  { key: 'selected_expert', label: 'Выбранный эксперт', icon: '🎓', enabled: false, format: 'bold', category: 'expert' },
+];
 
 interface ClientChatProps {
   clientId: string;
@@ -87,65 +94,28 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
-  photo: '🖼 Фото',
-  video: '🎬 Видео',
-  document: '📄 Документ',
-  album: '🗂 Альбом',
-};
-
-// Format value based on format type
-function formatChatValue(fmt: TextFormat, value: string, buttonText?: string, linkText?: string): string {
-  switch (fmt) {
-    case 'bold': return `<b>${value}</b>`;
-    case 'italic': return `<i>${value}</i>`;
-    case 'code': return `\`\`\`\n${value}\n\`\`\``;
-    case 'mono': return `<code>${value}</code>`;
-    case 'quote': return `<blockquote>${value}</blockquote>`;
-    case 'link': return linkText ? `<a href="${value}">${linkText}</a>` : `<a href="${value}">${value}</a>`;
-    default: return value;
-  }
-}
-
-function buildMessageFromTemplate(template: ChatTemplate, clientData: Client): string {
-  const rawFields = template.fields;
-  let fields: any[] = [];
-
-  if (Array.isArray(rawFields)) {
-    fields = rawFields;
-  } else if (rawFields && typeof rawFields === 'object') {
-    fields = rawFields.fieldsList || [];
-  }
-
-  const enabledFields = fields.filter((f: any) => f.enabled);
-  const lines: string[] = [];
-
-  if (template.header_text) {
-    lines.push(template.header_text);
-    lines.push('');
-  }
-
-  for (const field of enabledFields) {
-    let value = (clientData as Record<string, string | null>)[field.key];
-
-    // Handle special fields
-    if (field.key === 'telegram_link') {
-      const tgUsername = clientData.telegram_client?.replace('@', '');
-      value = tgUsername ? `https://t.me/${tgUsername}` : null;
-    }
-
-    if (value) {
-      const formatted = formatChatValue(field.format, value, field.buttonText, field.linkText);
-      lines.push(`${field.label}: ${formatted}`);
+/** Split message by manual separators (✂️✂️✂️ or ::) then by char limit */
+function splitMessage(text: string, charLimit: number): string[] {
+  // First split by manual separators
+  const manualParts = text.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
+  
+  const result: string[] = [];
+  for (const part of manualParts) {
+    if (part.length <= charLimit) {
+      result.push(part);
+    } else {
+      // Split by paragraphs first, then by char limit
+      let remaining = part;
+      while (remaining.length > charLimit) {
+        let splitAt = remaining.lastIndexOf('\n', charLimit);
+        if (splitAt <= 0) splitAt = charLimit;
+        result.push(remaining.slice(0, splitAt).trim());
+        remaining = remaining.slice(splitAt).trim();
+      }
+      if (remaining) result.push(remaining);
     }
   }
-
-  if (template.footer_text) {
-    lines.push('');
-    lines.push(template.footer_text);
-  }
-
-  return lines.join('\n');
+  return result;
 }
 
 export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, clientName, clientData }) => {
@@ -168,7 +138,6 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         .select('*')
         .eq('client_id', clientId)
         .order('sent_at', { ascending: true });
-      
       if (error) throw error;
       return data as Message[];
     },
@@ -185,7 +154,6 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         .eq('type', 'chat_message')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       return data as ChatTemplate[];
     },
@@ -195,26 +163,19 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
   useEffect(() => {
     const channel = supabase
       .channel(`messages-${clientId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'client_messages',
-          filter: `client_id=eq.${clientId}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
-        }
-      )
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'client_messages',
+        filter: `client_id=eq.${clientId}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [clientId, queryClient]);
 
-  // Auto scroll to bottom
+  // Auto scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -223,21 +184,18 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
 
   // Apply a saved template
   const applyTemplate = (templateId: string) => {
-    if (!clientData || !templates) return;
+    if (!templates) return;
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
 
-    const builtMessage = buildMessageFromTemplate(template, clientData);
-    setMessage(prev => prev ? `${prev}\n\n${builtMessage}` : builtMessage);
-
-    // Apply media if any
+    // Use macroText if available, otherwise header_text
     const rawFields = template.fields;
-    let templateMedia: MediaAttachment[] = [];
-    if (template.media && Array.isArray(template.media)) {
-      templateMedia = template.media;
-    }
-    if (templateMedia.length > 0) {
-      setMedia(templateMedia);
+    const macroText = rawFields?.macroText || template.header_text || '';
+    setMessage(prev => prev ? `${prev}\n\n${macroText}` : macroText);
+
+    // Apply media
+    if (template.media && Array.isArray(template.media) && template.media.length > 0) {
+      setMedia(template.media as MediaAttachment[]);
       setUseMediaCaption(template.use_media_caption || false);
     }
 
@@ -255,9 +213,9 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       const { error } = await supabase.from('notification_templates').insert([{
         name: newTemplateName.trim(),
         type: 'chat_message',
-        header_text: message,
+        header_text: '',
         footer_text: '',
-        fields: { fieldsList: [], inlineButtons: [] } as any,
+        fields: { fieldsList: [], inlineButtons: [], macroText: message } as any,
         media: (media.length > 0 ? media : []) as any,
         use_media_caption: useMediaCaption,
         is_active: true,
@@ -266,49 +224,51 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       setNewTemplateName('');
       refetchTemplates();
       toast({ title: 'Шаблон сохранён' });
-    } catch (err) {
+    } catch {
       toast({ title: 'Ошибка сохранения', variant: 'destructive' });
     } finally {
       setIsSavingTemplate(false);
     }
   };
 
-  const addMedia = () => {
-    setMedia(prev => [...prev, {
-      id: crypto.randomUUID(),
-      type: 'photo',
-      url: '',
-    }]);
-  };
-
-  const updateMedia = (id: string, updates: Partial<MediaAttachment>) => {
-    setMedia(prev => prev.map(m => 
-      m.id === id ? { ...m, ...updates } : m
-    ));
-  };
-
-  const removeMedia = (id: string) => {
-    setMedia(prev => prev.filter(m => m.id !== id));
-  };
-
   // Send message mutation
   const sendMutation = useMutation({
     mutationFn: async (text: string) => {
       const validMedia = media.filter(m => m.url.trim());
-      
-      const response = await supabase.functions.invoke('send-telegram-message', {
-        body: {
-          clientId,
-          telegramId,
-          message: text,
-          media: validMedia.length > 0 ? validMedia : undefined,
-          useMediaCaption: validMedia.length > 0 ? useMediaCaption : false,
-        },
-      });
+      const hasMedia = validMedia.length > 0;
+      const charLimit = hasMedia && useMediaCaption ? 1000 : 4000;
+      const parts = splitMessage(text, charLimit);
 
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
-      return response.data;
+      // Send first part with media (if any)
+      for (let i = 0; i < parts.length; i++) {
+        const isFirst = i === 0;
+        const response = await supabase.functions.invoke('send-telegram-message', {
+          body: {
+            clientId,
+            telegramId,
+            message: parts[i],
+            media: isFirst && hasMedia ? validMedia : undefined,
+            useMediaCaption: isFirst && hasMedia ? useMediaCaption : false,
+          },
+        });
+        if (response.error) throw new Error(response.error.message);
+        if (response.data?.error) throw new Error(response.data.error);
+      }
+
+      // If no text but has media
+      if (parts.length === 0 && hasMedia) {
+        const response = await supabase.functions.invoke('send-telegram-message', {
+          body: {
+            clientId,
+            telegramId,
+            message: '',
+            media: validMedia,
+            useMediaCaption: false,
+          },
+        });
+        if (response.error) throw new Error(response.error.message);
+        if (response.data?.error) throw new Error(response.data.error);
+      }
     },
     onSuccess: () => {
       setMessage('');
@@ -375,34 +335,17 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         ) : (
           <div className="space-y-3 pr-2">
             {messages?.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                    msg.direction === 'outgoing'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
+              <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.direction === 'outgoing' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                  <div className={`flex items-center gap-1 mt-1 ${
-                    msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'
-                  }`}>
-                    <span className={`text-[10px] ${
-                      msg.direction === 'outgoing' 
-                        ? 'text-primary-foreground/70' 
-                        : 'text-muted-foreground'
-                    }`}>
+                  <div className={`flex items-center gap-1 mt-1 ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
+                    <span className={`text-[10px] ${msg.direction === 'outgoing' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {format(new Date(msg.sent_at), 'HH:mm', { locale: ru })}
                     </span>
                     {msg.direction === 'outgoing' && getStatusIcon(msg.status)}
                   </div>
                   {msg.status === 'failed' && msg.error_message && (
-                    <p className="text-[10px] text-destructive mt-1">
-                      {msg.error_message}
-                    </p>
+                    <p className="text-[10px] text-destructive mt-1">{msg.error_message}</p>
                   )}
                 </div>
               </div>
@@ -422,22 +365,20 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             <ChevronDown className={`h-3 w-3 transition-transform ${showConstructor ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 space-y-3">
+        <CollapsibleContent className="pt-2 space-y-3 max-h-[300px] overflow-y-auto">
           {/* Template selector */}
-          <div className="space-y-2">
-            <Label className="text-xs flex items-center gap-1">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] flex items-center gap-1">
               <FileText className="w-3 h-3" />
               Выбрать шаблон
             </Label>
             <Select onValueChange={applyTemplate}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-7 text-[10px]">
                 <SelectValue placeholder="Выберите шаблон..." />
               </SelectTrigger>
               <SelectContent>
                 {templates?.map(t => (
-                  <SelectItem key={t.id} value={t.id} className="text-xs">
-                    {t.name}
-                  </SelectItem>
+                  <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
                 ))}
                 {(!templates || templates.length === 0) && (
                   <SelectItem value="__none" disabled className="text-xs text-muted-foreground">
@@ -449,130 +390,90 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
           </div>
 
           {/* Save as template */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Input
               value={newTemplateName}
               onChange={e => setNewTemplateName(e.target.value)}
-              placeholder="Название нового шаблона..."
-              className="h-7 text-xs flex-1"
+              placeholder="Название шаблона..."
+              className="h-6 text-[10px] flex-1"
             />
             <Button 
               variant="outline" 
               size="sm" 
               onClick={saveAsTemplate}
               disabled={isSavingTemplate || !newTemplateName.trim()}
-              className="h-7 px-2 text-xs gap-1"
+              className="h-6 px-2 text-[10px] gap-1"
             >
               {isSavingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
               Сохранить
             </Button>
           </div>
-          
-          {/* Media attachments */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Медиафайлы</Label>
-              <Button variant="ghost" size="sm" onClick={addMedia} className="h-6 px-2 text-xs gap-1">
-                <Plus className="w-3 h-3" />
-                Добавить
-              </Button>
-            </div>
-            
-            {media.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={useMediaCaption}
-                  onCheckedChange={setUseMediaCaption}
-                  id="useCaption"
-                  className="scale-75"
-                />
-                <Label htmlFor="useCaption" className="text-xs">
-                  Текст как подпись
-                </Label>
-              </div>
-            )}
-            
-            {media.map((m) => (
-              <div key={m.id} className="flex items-center gap-2">
-                <Select
-                  value={m.type}
-                  onValueChange={(value: MediaType) => updateMedia(m.id, { type: value })}
-                >
-                  <SelectTrigger className="w-24 h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(MEDIA_TYPE_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key} className="text-xs">
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={m.url}
-                  onChange={(e) => updateMedia(m.id, { url: e.target.value })}
-                  placeholder="URL или file_id"
-                  className="flex-1 h-7 text-xs"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => removeMedia(m.id)}
-                >
-                  <Trash2 className="w-3 h-3 text-destructive" />
-                </Button>
-              </div>
-            ))}
-          </div>
+
+          {/* Macro Editor */}
+          <MacroEditor
+            value={message}
+            onChange={setMessage}
+            fields={CHAT_FIELDS}
+            media={media}
+            onMediaChange={setMedia}
+            useMediaCaption={useMediaCaption}
+            onUseMediaCaptionChange={setUseMediaCaption}
+            compact
+          />
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Media preview */}
-      {media.filter(m => m.url.trim()).length > 0 && (
-        <div className="flex items-center gap-2 mt-2 p-2 bg-muted/30 rounded-lg text-xs text-muted-foreground">
-          {media[0].type === 'photo' && <Image className="w-3 h-3" />}
-          {media[0].type === 'video' && <Video className="w-3 h-3" />}
-          {media[0].type === 'document' && <File className="w-3 h-3" />}
-          {media[0].type === 'album' && <Image className="w-3 h-3" />}
-          <span>
-            {media.filter(m => m.url.trim()).length === 1 
-              ? MEDIA_TYPE_LABELS[media[0].type]
-              : `Альбом (${media.filter(m => m.url.trim()).length} файлов)`}
-          </span>
-          {useMediaCaption && <span className="text-primary">+ подпись</span>}
+      {/* Input area (simple mode when constructor is closed) */}
+      {!showConstructor && (
+        <div className="pt-3 border-t border-border mt-2">
+          <div className="flex gap-2">
+            <textarea
+              placeholder="Введите сообщение..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex min-h-[60px] max-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              disabled={sendMutation.isPending}
+            />
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={(!message.trim() && media.filter(m => m.url.trim()).length === 0) || sendMutation.isPending}
+              className="shrink-0 self-end h-10 w-10"
+            >
+              {sendMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Enter — отправить, Shift+Enter — новая строка
+          </p>
         </div>
       )}
 
-      {/* Input area */}
-      <div className="pt-3 border-t border-border mt-2">
-        <div className="flex gap-2">
-          <Textarea
-            placeholder="Введите сообщение..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="min-h-[60px] max-h-[120px] resize-none text-sm"
-            disabled={sendMutation.isPending}
-          />
+      {/* Send button when constructor is open */}
+      {showConstructor && (
+        <div className="pt-2 border-t border-border mt-2 flex items-center gap-2">
           <Button
-            size="icon"
             onClick={handleSend}
             disabled={(!message.trim() && media.filter(m => m.url.trim()).length === 0) || sendMutation.isPending}
-            className="shrink-0 self-end h-10 w-10"
+            className="flex-1 h-9 gap-2"
           >
             {sendMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />
             )}
+            Отправить
           </Button>
+          <p className="text-[10px] text-muted-foreground">
+            ✂️✂️✂️ или :: — разделители
+          </p>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">
-          Enter — отправить, Shift+Enter — новая строка
-        </p>
-      </div>
+      )}
     </div>
   );
 };
