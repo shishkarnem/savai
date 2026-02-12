@@ -31,26 +31,13 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import MacroEditor from '@/components/crm/MacroEditor';
+import InlineButtonBuilder, { type InlineButtonRow } from '@/components/InlineButtonBuilder';
 import { CLIENT_STATUSES } from '@/components/crm/CRMFilters';
 import type { Tables } from '@/integrations/supabase/types';
 import type { MessageField, MediaAttachment } from '@/pages/CRMMessageConstructor';
+import { ALL_CRM_FIELDS } from '@/pages/CRMMessageConstructor';
 
 type Client = Tables<'clients'>;
-
-const CHAT_FIELDS: MessageField[] = [
-  { key: 'full_name', label: 'ФИО клиента', icon: '👤', enabled: true, format: 'bold', category: 'client' },
-  { key: 'telegram_link', label: 'Ссылка на Telegram', icon: '📨', enabled: true, format: 'link', category: 'client', linkText: 'Написать в Telegram' },
-  { key: 'telegram_id', label: 'Telegram ID', icon: '#️⃣', enabled: true, format: 'code', category: 'client' },
-  { key: 'telegram_client', label: 'Telegram клиента', icon: '👤', enabled: false, format: 'normal', category: 'client' },
-  { key: 'city', label: 'Город', icon: '📍', enabled: false, format: 'normal', category: 'client' },
-  { key: 'status', label: 'Статус', icon: '⚙️', enabled: false, format: 'bold', category: 'client' },
-  { key: 'project', label: 'Проект', icon: '📂', enabled: false, format: 'bold', category: 'project' },
-  { key: 'product', label: 'Продукт', icon: '📦', enabled: false, format: 'normal', category: 'project' },
-  { key: 'tariff', label: 'Тариф', icon: '💰', enabled: false, format: 'bold', category: 'finance' },
-  { key: 'sav_cost', label: 'Стоимость SAV', icon: '💵', enabled: false, format: 'bold', category: 'finance' },
-  { key: 'selected_expert', label: 'Выбранный эксперт', icon: '🎓', enabled: false, format: 'bold', category: 'expert' },
-  { key: 'expert_pseudonym', label: 'Псевдоним эксперта', icon: '🎓', enabled: false, format: 'bold', category: 'expert' },
-];
 
 interface BulkActionsBarProps {
   selectedIds: Set<string>;
@@ -120,6 +107,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   const [messageText, setMessageText] = useState('');
   const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [useMediaCaption, setUseMediaCaption] = useState(false);
+  const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
 
   // Status change state
   const [newStatus, setNewStatus] = useState('');
@@ -160,6 +148,16 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     setMessageText(t.header_text || '');
     setMedia((t.media as unknown as MediaAttachment[]) || []);
     setUseMediaCaption(t.use_media_caption || false);
+    // Load inline buttons from template fields
+    const rawFields = t.fields as any;
+    if (rawFields && !Array.isArray(rawFields) && rawFields.inlineButtons) {
+      setInlineButtons(rawFields.inlineButtons);
+    } else {
+      setInlineButtons([]);
+    }
+    if (rawFields && !Array.isArray(rawFields) && rawFields.macroText) {
+      setMessageText(rawFields.macroText);
+    }
   };
 
   // --- BULK SEND MESSAGES ---
@@ -188,6 +186,20 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
           const isFirst = i === 0;
           const partMedia = isFirst && hasMediaFiles ? media.filter(m => m.url.trim()) : undefined;
 
+          const isLast = i === parts.length - 1;
+          // Resolve macros in inline button URLs/text too
+          const resolvedButtons = isLast && inlineButtons.length > 0
+            ? inlineButtons.map(row => ({
+                ...row,
+                buttons: row.buttons.map(btn => ({
+                  ...btn,
+                  text: resolveMacros(btn.text, client),
+                  url: btn.url ? resolveMacros(btn.url, client) : btn.url,
+                  callbackData: btn.callbackData ? resolveMacros(btn.callbackData, client) : btn.callbackData,
+                })),
+              }))
+            : undefined;
+
           await supabase.functions.invoke('send-telegram-message', {
             body: {
               clientId: client.id,
@@ -195,6 +207,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               message: parts[i],
               media: partMedia,
               useMediaCaption: isFirst && useMediaCaption,
+              inlineButtons: resolvedButtons,
             },
           });
 
@@ -217,6 +230,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     setSendOpen(false);
     setMessageText('');
     setMedia([]);
+    setInlineButtons([]);
   };
 
   // --- BULK STATUS CHANGE ---
@@ -365,11 +379,16 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
           <MacroEditor
             value={messageText}
             onChange={setMessageText}
-            fields={CHAT_FIELDS}
+            fields={ALL_CRM_FIELDS}
             media={media}
             onMediaChange={setMedia}
             useMediaCaption={useMediaCaption}
             onUseMediaCaptionChange={setUseMediaCaption}
+          />
+
+          <InlineButtonBuilder
+            rows={inlineButtons}
+            onChange={setInlineButtons}
           />
 
           <DialogFooter>

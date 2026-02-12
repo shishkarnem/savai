@@ -13,12 +13,43 @@ interface MediaAttachment {
   caption?: string;
 }
 
+interface InlineButton {
+  id: string;
+  type: 'text' | 'link' | 'webapp';
+  text: string;
+  url?: string;
+  callbackData?: string;
+}
+
+interface InlineButtonRow {
+  id: string;
+  buttons: InlineButton[];
+}
+
 interface SendMessageRequest {
   clientId: string;
   telegramId: string;
   message: string;
   media?: MediaAttachment[];
   useMediaCaption?: boolean;
+  inlineButtons?: InlineButtonRow[];
+}
+
+function buildReplyMarkup(inlineButtons?: InlineButtonRow[]) {
+  if (!inlineButtons || inlineButtons.length === 0) return undefined;
+  return {
+    inline_keyboard: inlineButtons.map(row =>
+      row.buttons.map(btn => {
+        if (btn.type === 'link' && btn.url) {
+          return { text: btn.text, url: btn.url };
+        }
+        if (btn.type === 'webapp' && btn.url) {
+          return { text: btn.text, web_app: { url: btn.url } };
+        }
+        return { text: btn.text, callback_data: btn.callbackData || 'noop' };
+      })
+    ),
+  };
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -41,7 +72,8 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { clientId, telegramId, message, media, useMediaCaption }: SendMessageRequest = await req.json();
+    const { clientId, telegramId, message, media, useMediaCaption, inlineButtons }: SendMessageRequest = await req.json();
+    const replyMarkup = buildReplyMarkup(inlineButtons);
 
     console.log(`Sending message to Telegram ID: ${telegramId}`);
     console.log(`Client ID: ${clientId}`);
@@ -121,7 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
         });
         telegramResult = await response.json();
         
-        // If not using caption and there's a message, send it separately
+        // If not using caption and there's a message, send it separately (with buttons)
         if (!useMediaCaption && message) {
           const textUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
           await fetch(textUrl, {
@@ -131,6 +163,19 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               text: message,
               parse_mode: "HTML",
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            }),
+          });
+        } else if (replyMarkup) {
+          // Media group doesn't support reply_markup, send buttons as separate message
+          const btnUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+          await fetch(btnUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: telegramId,
+              text: "⬇️",
+              reply_markup: replyMarkup,
             }),
           });
         }
@@ -147,6 +192,7 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               photo: singleMedia.url,
               ...(useMediaCaption && message ? { caption: message, parse_mode: 'HTML' } : {}),
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             };
             break;
           case 'video':
@@ -155,6 +201,7 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               video: singleMedia.url,
               ...(useMediaCaption && message ? { caption: message, parse_mode: 'HTML' } : {}),
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             };
             break;
           case 'document':
@@ -163,6 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               document: singleMedia.url,
               ...(useMediaCaption && message ? { caption: message, parse_mode: 'HTML' } : {}),
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             };
             break;
           default:
@@ -171,6 +219,7 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               photo: singleMedia.url,
               ...(useMediaCaption && message ? { caption: message, parse_mode: 'HTML' } : {}),
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             };
         }
 
@@ -191,6 +240,7 @@ const handler = async (req: Request): Promise<Response> => {
               chat_id: telegramId,
               text: message,
               parse_mode: "HTML",
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             }),
           });
         }
@@ -205,6 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
           chat_id: telegramId,
           text: message,
           parse_mode: "HTML",
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }),
       });
       telegramResult = await response.json();
