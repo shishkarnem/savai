@@ -409,6 +409,16 @@ const TelegramProfile: React.FC = () => {
                   value={clientData?.telegram_client} 
                   icon={<MessageSquare className="h-4 w-4" />} 
                 />
+                <InfoRow 
+                  label="Реферальный код" 
+                  value={(displayProfile as any)?.referral_code} 
+                  icon={<Users className="h-4 w-4" />} 
+                />
+                <InfoRow 
+                  label="Приглашён партнёром" 
+                  value={(displayProfile as any)?.referred_by} 
+                  icon={<ExternalLink className="h-4 w-4" />} 
+                />
               </div>
             </Section>
 
