@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2, MessageSquare } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2, MessageSquare, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -31,6 +32,7 @@ import { SettingsConstructor } from '@/components/crm/SettingsConstructor';
 import { useCRMSettings } from '@/hooks/useCRMSettings';
 import { useCRMAccess } from '@/hooks/useCRMAccess';
 import { AccessDenied } from '@/components/crm/AccessDenied';
+import { BulkActionsBar } from '@/components/crm/BulkActionsBar';
 
 type Client = Tables<'clients'>;
 
@@ -104,7 +106,7 @@ const AdminCRM: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
-
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { data: clients, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['admin-clients'],
     queryFn: async () => {
@@ -485,10 +487,19 @@ const AdminCRM: React.FC = () => {
                     size="sm"
                     onClick={() => navigate('/admin/crm/messages')}
                     className="gap-2"
-                    title="Конструктор сообщений"
+                    title="Создать шаблон для массовой рассылки"
                   >
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="hidden sm:inline">Сообщения</span>
+                    <Send className="h-4 w-4" />
+                    <span className="hidden sm:inline">Шаблон рассылки</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/admin/crm/admins')}
+                    className="gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span className="hidden sm:inline">Доступ</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -614,6 +625,23 @@ const AdminCRM: React.FC = () => {
                     <Table className="min-w-[1200px]">
                       <TableHeader>
                         <TableRow className="bg-muted/30">
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={paginatedClients.length > 0 && paginatedClients.every(c => selectedIds.has(c.id))}
+                              onCheckedChange={(checked) => {
+                                setSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  if (checked) {
+                                    filteredClients.forEach(c => next.add(c.id));
+                                  } else {
+                                    filteredClients.forEach(c => next.delete(c.id));
+                                  }
+                                  return next;
+                                });
+                              }}
+                              title="Выбрать всех (с учётом фильтров)"
+                            />
+                          </TableHead>
                           {visibleColumns.map((col) => (
                             <TableHead key={col.key} className="whitespace-nowrap">
                               {col.label}
@@ -625,9 +653,22 @@ const AdminCRM: React.FC = () => {
                         {paginatedClients.map((client) => (
                           <TableRow 
                             key={client.id} 
-                            className="hover:bg-muted/20 cursor-pointer"
+                            className={`hover:bg-muted/20 cursor-pointer ${selectedIds.has(client.id) ? 'bg-primary/5' : ''}`}
                             onClick={() => handleClientClick(client)}
                           >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedIds.has(client.id)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedIds(prev => {
+                                    const next = new Set(prev);
+                                    if (checked) next.add(client.id);
+                                    else next.delete(client.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                            </TableCell>
                             {visibleColumns.map((col) => (
                               <TableCell key={col.key}>
                                 {renderCellContent(client, col.key)}
@@ -690,6 +731,14 @@ const AdminCRM: React.FC = () => {
             )}
           </>
         )}
+
+        {/* Bulk Actions */}
+        <BulkActionsBar
+          selectedIds={selectedIds}
+          clients={filteredClients}
+          onClearSelection={() => setSelectedIds(new Set())}
+          onRefresh={() => { refetch(); setSelectedIds(new Set()); }}
+        />
       </main>
 
       {/* Client Card Dialog */}
