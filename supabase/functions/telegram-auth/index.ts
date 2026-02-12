@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { telegramUser } = await req.json() as { telegramUser: TelegramUser };
+    const { telegramUser, referralCode } = await req.json() as { telegramUser: TelegramUser; referralCode?: string | null };
 
     if (!telegramUser || !telegramUser.id) {
       return new Response(
@@ -52,15 +52,22 @@ Deno.serve(async (req) => {
     let profile;
 
     if (existingUser) {
-      // Update existing user
+      // Update existing user (only set referred_by if not already set)
+      const updateData: Record<string, any> = {
+        first_name: telegramUser.first_name || existingUser.first_name,
+        last_name: telegramUser.last_name || existingUser.last_name,
+        username: telegramUser.username || existingUser.username,
+        photo_url: telegramUser.photo_url || existingUser.photo_url,
+      };
+      
+      // Only set referred_by on first referral (don't overwrite)
+      if (referralCode && !existingUser.referred_by) {
+        updateData.referred_by = referralCode;
+      }
+
       const { data: updatedUser, error: updateError } = await supabase
         .from("telegram_profiles")
-        .update({
-          first_name: telegramUser.first_name || existingUser.first_name,
-          last_name: telegramUser.last_name || existingUser.last_name,
-          username: telegramUser.username || existingUser.username,
-          photo_url: telegramUser.photo_url || existingUser.photo_url,
-        })
+        .update(updateData)
         .eq("telegram_id", telegramUser.id)
         .select()
         .single();
@@ -85,6 +92,8 @@ Deno.serve(async (req) => {
           last_name: telegramUser.last_name,
           username: telegramUser.username,
           photo_url: telegramUser.photo_url,
+          referred_by: referralCode || null,
+          referral_code: String(telegramUser.id),
         })
         .select()
         .single();

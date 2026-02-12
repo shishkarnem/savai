@@ -425,6 +425,8 @@ export type Database = {
           id: string
           last_name: string | null
           photo_url: string | null
+          referral_code: string | null
+          referred_by: string | null
           telegram_id: number
           updated_at: string
           username: string | null
@@ -435,6 +437,8 @@ export type Database = {
           id?: string
           last_name?: string | null
           photo_url?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           telegram_id: number
           updated_at?: string
           username?: string | null
@@ -445,6 +449,8 @@ export type Database = {
           id?: string
           last_name?: string | null
           photo_url?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           telegram_id?: number
           updated_at?: string
           username?: string | null

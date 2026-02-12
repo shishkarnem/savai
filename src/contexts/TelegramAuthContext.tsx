@@ -16,6 +16,8 @@ interface TelegramProfile {
   last_name: string | null;
   username: string | null;
   photo_url: string | null;
+  referral_code: string | null;
+  referred_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +33,7 @@ declare global {
           query_id?: string;
           auth_date?: number;
           hash?: string;
+          start_param?: string;
         };
         ready: () => void;
         expand: () => void;
@@ -76,6 +79,8 @@ const DEV_USER_PROFILE: TelegramProfile = {
   last_name: 'SAV',
   username: 'sav_developer',
   photo_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=sav-dev&backgroundColor=c4a052',
+  referral_code: null,
+  referred_by: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -123,6 +128,7 @@ export const TelegramAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
       tgWebApp.expand();
 
       const user = tgWebApp.initDataUnsafe.user;
+      const startParam = tgWebApp.initDataUnsafe.start_param;
       
       if (!user) {
         console.log('No Telegram user data available');
@@ -131,12 +137,12 @@ export const TelegramAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
 
       setTelegramUser(user);
-      console.log('Telegram user detected:', user);
+      console.log('Telegram user detected:', user, 'startParam:', startParam);
 
       try {
         // Register or update user in database
         const { data, error: fnError } = await supabase.functions.invoke('telegram-auth', {
-          body: { telegramUser: user }
+          body: { telegramUser: user, referralCode: startParam || null }
         });
 
         if (fnError) {
