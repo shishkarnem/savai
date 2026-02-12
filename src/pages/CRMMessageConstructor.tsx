@@ -80,7 +80,7 @@ export interface MessageField {
 }
 
 // All CRM fields from database
-const ALL_CRM_FIELDS: MessageField[] = [
+export const ALL_CRM_FIELDS: MessageField[] = [
   // Client info
   { key: 'full_name', label: 'ФИО клиента', icon: <User className="w-4 h-4" />, enabled: true, format: 'bold', category: 'client' },
   { key: 'telegram_link', label: 'Ссылка на Telegram', icon: <Send className="w-4 h-4" />, enabled: true, format: 'link', category: 'client', linkText: 'Написать в Telegram' },
