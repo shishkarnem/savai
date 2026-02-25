@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -26,16 +29,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Send, UserCheck, RefreshCw, Trash2, X, Loader2, FileText } from 'lucide-react';
+import { Send, UserCheck, RefreshCw, Trash2, X, Loader2, FileText, Save, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MacroEditor from '@/components/crm/MacroEditor';
 import InlineButtonBuilder, { type InlineButtonRow } from '@/components/InlineButtonBuilder';
 import { CLIENT_STATUSES } from '@/components/crm/CRMFilters';
 import type { Tables } from '@/integrations/supabase/types';
-import type { MessageField, MediaAttachment } from '@/pages/CRMMessageConstructor';
+import type { MediaAttachment } from '@/pages/CRMMessageConstructor';
 import { ALL_CRM_FIELDS } from '@/pages/CRMMessageConstructor';
+import { resolveMacros, splitMessage, processMessageText, markdownToHtml } from '@/utils/messageParser';
 
 type Client = Tables<'clients'>;
 
@@ -46,50 +50,6 @@ interface BulkActionsBarProps {
   onRefresh: () => void;
 }
 
-/** Replace macros like {{full_name}} with actual client values */
-function resolveMacros(text: string, client: Client): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    if (key === 'telegram_link') {
-      return client.telegram_client
-        ? `https://t.me/${client.telegram_client.replace('@', '')}`
-        : client.telegram_id
-          ? `tg://user?id=${client.telegram_id}`
-          : '';
-    }
-    return (client as Record<string, unknown>)[key]?.toString() ?? '';
-  });
-}
-
-/** Split message by manual separators or char limits */
-function splitMessage(text: string, hasMedia: boolean, useCaption: boolean): string[] {
-  // First split by manual separators
-  const parts = text.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
-  
-  const limit = hasMedia && useCaption ? 1000 : 4000;
-  const result: string[] = [];
-  
-  for (const part of parts) {
-    if (part.length <= limit) {
-      result.push(part);
-    } else {
-      // Split by limit
-      let remaining = part;
-      while (remaining.length > 0) {
-        if (remaining.length <= limit) {
-          result.push(remaining);
-          break;
-        }
-        let splitIdx = remaining.lastIndexOf('\n', limit);
-        if (splitIdx < limit * 0.3) splitIdx = remaining.lastIndexOf(' ', limit);
-        if (splitIdx < limit * 0.3) splitIdx = limit;
-        result.push(remaining.slice(0, splitIdx).trim());
-        remaining = remaining.slice(splitIdx).trim();
-      }
-    }
-  }
-  return result;
-}
-
 export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   selectedIds,
   clients,
@@ -97,6 +57,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onRefresh,
 }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [sendOpen, setSendOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [expertOpen, setExpertOpen] = useState(false);
@@ -109,6 +70,16 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   const [useMediaCaption, setUseMediaCaption] = useState(false);
   const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
 
+  // Save template state
+  const [templateName, setTemplateName] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+  // Progress state
+  const [sendProgress, setSendProgress] = useState({ sent: 0, failed: 0, total: 0 });
+
+  // Preview state
+  const [previewClientIdx, setPreviewClientIdx] = useState<number>(0);
+
   // Status change state
   const [newStatus, setNewStatus] = useState('');
 
@@ -117,6 +88,10 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
   const selectedClients = clients.filter(c => selectedIds.has(c.id));
   const count = selectedIds.size;
+  const withTelegram = selectedClients.filter(c => c.telegram_id);
+
+  // Preview client for macro resolution
+  const previewClient = withTelegram[previewClientIdx] || withTelegram[0] || null;
 
   // Fetch experts
   const { data: experts } = useQuery({
@@ -129,7 +104,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   });
 
   // Fetch templates
-  const { data: templates } = useQuery({
+  const { data: templates, refetch: refetchTemplates } = useQuery({
     queryKey: ['bulk-templates'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -148,7 +123,6 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     setMessageText(t.header_text || '');
     setMedia((t.media as unknown as MediaAttachment[]) || []);
     setUseMediaCaption(t.use_media_caption || false);
-    // Load inline buttons from template fields
     const rawFields = t.fields as any;
     if (rawFields && !Array.isArray(rawFields) && rawFields.inlineButtons) {
       setInlineButtons(rawFields.inlineButtons);
@@ -160,9 +134,37 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     }
   };
 
-  // --- BULK SEND MESSAGES ---
+  // Save current settings as template
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      toast({ title: 'Введите название шаблона', variant: 'destructive' });
+      return;
+    }
+    setIsSavingTemplate(true);
+    try {
+      const { error } = await supabase.from('notification_templates').insert([{
+        name: templateName.trim(),
+        type: 'bulk_message',
+        header_text: '',
+        footer_text: '',
+        fields: { fieldsList: [], inlineButtons, macroText: messageText } as any,
+        media: (media.length > 0 ? media : []) as any,
+        use_media_caption: useMediaCaption,
+        is_active: true,
+      }]);
+      if (error) throw error;
+      setTemplateName('');
+      refetchTemplates();
+      toast({ title: 'Шаблон сохранён' });
+    } catch {
+      toast({ title: 'Ошибка сохранения', variant: 'destructive' });
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  // --- BULK SEND MESSAGES (optimized with delays) ---
   const handleBulkSend = async () => {
-    const withTelegram = selectedClients.filter(c => c.telegram_id);
     if (withTelegram.length === 0) {
       toast({ title: 'Ошибка', description: 'Нет клиентов с Telegram ID', variant: 'destructive' });
       return;
@@ -173,53 +175,98 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     }
 
     setIsProcessing(true);
+    const total = withTelegram.length;
+    setSendProgress({ sent: 0, failed: 0, total });
+
+    // Process in batches of 25 with 1s delay between batches (Telegram rate limit: ~30 msg/s)
+    const BATCH_SIZE = 25;
+    const BATCH_DELAY = 1500; // ms between batches
+    const INTER_MSG_DELAY = 200; // ms between individual messages within batch
+
     let sent = 0;
     let failed = 0;
 
-    for (const client of withTelegram) {
-      try {
-        const resolvedText = resolveMacros(messageText, client);
-        const hasMediaFiles = media.some(m => m.url.trim());
-        const parts = splitMessage(resolvedText, hasMediaFiles, useMediaCaption);
+    for (let batchStart = 0; batchStart < withTelegram.length; batchStart += BATCH_SIZE) {
+      const batch = withTelegram.slice(batchStart, batchStart + BATCH_SIZE);
+      
+      for (const client of batch) {
+        try {
+          // Convert markdown and process text commands
+          const htmlText = markdownToHtml(messageText);
+          const resolvedText = resolveMacros(htmlText, client as unknown as Record<string, unknown>);
+          
+          // Parse text commands (##INLINE:...##, ##IMG:...##, etc.)
+          const processed = processMessageText(resolvedText);
+          
+          // Combine inline buttons from builder + text commands
+          const allButtons = [...inlineButtons, ...processed.inlineButtons];
+          
+          // Combine media from attachments + text commands
+          const allMedia: MediaAttachment[] = [...media.filter(m => m.url.trim())];
+          for (const pm of processed.media) {
+            allMedia.push({
+              id: crypto.randomUUID(),
+              type: pm.type === 'video_note' || pm.type === 'audio' ? 'document' : pm.type,
+              url: pm.source,
+            });
+          }
+          for (const album of processed.albums) {
+            for (const source of album.sources) {
+              allMedia.push({ id: crypto.randomUUID(), type: 'photo', url: source });
+            }
+          }
 
-        for (let i = 0; i < parts.length; i++) {
-          const isFirst = i === 0;
-          const partMedia = isFirst && hasMediaFiles ? media.filter(m => m.url.trim()) : undefined;
+          const hasMediaFiles = allMedia.length > 0;
+          const charLimit = hasMediaFiles && useMediaCaption ? 1000 : 4000;
+          const parts = splitMessage(processed.text, charLimit);
 
-          const isLast = i === parts.length - 1;
-          // Resolve macros in inline button URLs/text too
-          const resolvedButtons = isLast && inlineButtons.length > 0
-            ? inlineButtons.map(row => ({
-                ...row,
-                buttons: row.buttons.map(btn => ({
-                  ...btn,
-                  text: resolveMacros(btn.text, client),
-                  url: btn.url ? resolveMacros(btn.url, client) : btn.url,
-                  callbackData: btn.callbackData ? resolveMacros(btn.callbackData, client) : btn.callbackData,
-                })),
-              }))
-            : undefined;
+          for (let i = 0; i < parts.length; i++) {
+            const isFirst = i === 0;
+            const isLast = i === parts.length - 1;
+            const partMedia = isFirst && hasMediaFiles ? allMedia : undefined;
 
-          await supabase.functions.invoke('send-telegram-message', {
-            body: {
-              clientId: client.id,
-              telegramId: client.telegram_id,
-              message: parts[i],
-              media: partMedia,
-              useMediaCaption: isFirst && useMediaCaption,
-              inlineButtons: resolvedButtons,
-            },
-          });
+            // Resolve macros in inline button URLs/text
+            const resolvedButtons = isLast && allButtons.length > 0
+              ? allButtons.map(row => ({
+                  ...row,
+                  buttons: row.buttons.map(btn => ({
+                    ...btn,
+                    text: resolveMacros(btn.text, client as unknown as Record<string, unknown>),
+                    url: btn.url ? resolveMacros(btn.url, client as unknown as Record<string, unknown>) : btn.url,
+                    callbackData: btn.callbackData ? resolveMacros(btn.callbackData, client as unknown as Record<string, unknown>) : btn.callbackData,
+                  })),
+                }))
+              : undefined;
 
-          // Small delay between parts
-          if (i < parts.length - 1) await new Promise(r => setTimeout(r, 500));
+            // Include parsed media commands for the edge function
+            const textMediaCommands = isFirst ? processed.media : undefined;
+
+            await supabase.functions.invoke('send-telegram-message', {
+              body: {
+                clientId: client.id,
+                telegramId: client.telegram_id,
+                message: parts[i],
+                media: partMedia,
+                useMediaCaption: isFirst && useMediaCaption,
+                inlineButtons: resolvedButtons,
+                textMediaCommands,
+              },
+            });
+
+            if (i < parts.length - 1) await new Promise(r => setTimeout(r, 500));
+          }
+          sent++;
+        } catch {
+          failed++;
         }
-        sent++;
-      } catch {
-        failed++;
+        setSendProgress({ sent: sent + failed, failed, total });
+        await new Promise(r => setTimeout(r, INTER_MSG_DELAY));
       }
-      // Delay between clients to avoid rate limiting
-      await new Promise(r => setTimeout(r, 300));
+
+      // Delay between batches
+      if (batchStart + BATCH_SIZE < withTelegram.length) {
+        await new Promise(r => setTimeout(r, BATCH_DELAY));
+      }
     }
 
     toast({
@@ -231,6 +278,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     setMessageText('');
     setMedia([]);
     setInlineButtons([]);
+    setSendProgress({ sent: 0, failed: 0, total: 0 });
   };
 
   // --- BULK STATUS CHANGE ---
@@ -248,7 +296,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       onRefresh();
       setStatusOpen(false);
       onClearSelection();
-    } catch (err) {
+    } catch {
       toast({ title: 'Ошибка', description: 'Не удалось обновить статусы', variant: 'destructive' });
     } finally {
       setIsProcessing(false);
@@ -304,6 +352,8 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
   if (count === 0) return null;
 
+  const progressPercent = sendProgress.total > 0 ? Math.round((sendProgress.sent / sendProgress.total) * 100) : 0;
+
   return (
     <>
       {/* Floating toolbar */}
@@ -348,7 +398,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               Массовая отправка сообщений
             </DialogTitle>
             <DialogDescription>
-              Будет отправлено {selectedClients.filter(c => c.telegram_id).length} клиентам с Telegram ID.
+              Будет отправлено {withTelegram.length} клиентам с Telegram ID.
               {selectedClients.filter(c => !c.telegram_id).length > 0 && (
                 <span className="text-destructive ml-1">
                   ({selectedClients.filter(c => !c.telegram_id).length} без Telegram ID — пропущены)
@@ -376,6 +426,27 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             </div>
           )}
 
+          {/* Save as template */}
+          <div className="flex items-center gap-1.5">
+            <Input
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              placeholder="Название шаблона для сохранения..."
+              className="h-7 text-xs flex-1"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveTemplate}
+              disabled={isSavingTemplate || !templateName.trim()}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              {isSavingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+              Сохранить
+            </Button>
+          </div>
+
+          {/* Macro editor with preview client */}
           <MacroEditor
             value={messageText}
             onChange={setMessageText}
@@ -384,18 +455,55 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             onMediaChange={setMedia}
             useMediaCaption={useMediaCaption}
             onUseMediaCaptionChange={setUseMediaCaption}
+            previewClient={previewClient}
           />
+
+          {/* Preview client selector */}
+          {withTelegram.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-muted-foreground" />
+              <Select
+                value={String(previewClientIdx)}
+                onValueChange={(v) => setPreviewClientIdx(Number(v))}
+              >
+                <SelectTrigger className="h-7 text-xs flex-1">
+                  <SelectValue placeholder="Предпросмотр для клиента..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {withTelegram.slice(0, 20).map((c, i) => (
+                    <SelectItem key={c.id} value={String(i)} className="text-xs">
+                      {c.full_name || c.telegram_client || c.telegram_id || `Клиент ${i + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <InlineButtonBuilder
             rows={inlineButtons}
             onChange={setInlineButtons}
           />
 
+          {/* Progress bar during sending */}
+          {isProcessing && sendProgress.total > 0 && (
+            <div className="space-y-2">
+              <Progress value={progressPercent} className="h-2" />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Отправлено: {sendProgress.sent - sendProgress.failed} / {sendProgress.total}</span>
+                {sendProgress.failed > 0 && (
+                  <span className="text-destructive">Ошибок: {sendProgress.failed}</span>
+                )}
+                <span>{progressPercent}%</span>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSendOpen(false)}>Отмена</Button>
+            <Button variant="outline" onClick={() => setSendOpen(false)} disabled={isProcessing}>Отмена</Button>
             <Button onClick={handleBulkSend} disabled={isProcessing} className="gap-2">
               {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Отправить {selectedClients.filter(c => c.telegram_id).length} клиентам
+              Отправить {withTelegram.length} клиентам
             </Button>
           </DialogFooter>
         </DialogContent>

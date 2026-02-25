@@ -509,7 +509,7 @@ export function MessageConstructorForm({
       let formatted: string;
       if (field.format === 'bold') formatted = `<b>${field.label}:</b> ${macro}`;
       else if (field.format === 'italic') formatted = `${field.label}: <i>${macro}</i>`;
-      else if (field.format === 'code') formatted = `${field.label}:\n\`\`\`\n${macro}\n\`\`\``;
+      else if (field.format === 'code') formatted = `${field.label}:\n<pre>${macro}</pre>`;
       else if (field.format === 'mono') formatted = `${field.label}: <code>${macro}</code>`;
       else if (field.format === 'quote') formatted = `${field.label}:\n<blockquote>${macro}</blockquote>`;
       else if (field.format === 'link') {
@@ -762,7 +762,11 @@ export function MessageConstructorForm({
                   {row.buttons.map((btn) => (
                     <div
                       key={btn.id}
-                      className="flex-1 text-center py-1.5 px-2 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-xs text-[#3390ec] truncate"
+                      className={`flex-1 text-center py-1.5 px-2 rounded text-xs truncate ${
+                        btn.style === 'success' ? 'bg-green-500/20 border border-green-500/40 text-green-400' :
+                        btn.style === 'danger' ? 'bg-red-500/20 border border-red-500/40 text-red-400' :
+                        'bg-[#3390ec]/20 border border-[#3390ec]/40 text-[#3390ec]'
+                      }`}
                     >
                       {btn.type === 'link' && '🔗 '}
                       {btn.type === 'webapp' && '🌐 '}
