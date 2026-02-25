@@ -220,30 +220,100 @@ export function processMessageText(text: string): ProcessedMessage {
 
 // ============ MESSAGE SPLITTING ============
 
+/** Split text at sentence/paragraph boundaries respecting charLimit */
+function splitAtBoundary(text: string, charLimit: number): string[] {
+  const result: string[] = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= charLimit) {
+      result.push(remaining);
+      break;
+    }
+    // Try paragraph break
+    let splitIdx = remaining.lastIndexOf('\n\n', charLimit);
+    if (splitIdx < charLimit * 0.3) splitIdx = remaining.lastIndexOf('\n', charLimit);
+    // Try sentence break (. ! ?)
+    if (splitIdx < charLimit * 0.3) {
+      const sentenceMatch = remaining.slice(0, charLimit).match(/.*[.!?]\s/s);
+      if (sentenceMatch) splitIdx = sentenceMatch[0].length;
+    }
+    if (splitIdx < charLimit * 0.3) splitIdx = remaining.lastIndexOf(' ', charLimit);
+    if (splitIdx < charLimit * 0.3) splitIdx = charLimit;
+    result.push(remaining.slice(0, splitIdx).trim());
+    remaining = remaining.slice(splitIdx).trim();
+  }
+  return result;
+}
+
 /** Split text by ✂️✂️✂️ or :: separators, then by char limit */
 export function splitMessage(text: string, charLimit: number = 4000): string[] {
   const parts = text.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
   const result: string[] = [];
-  
   for (const part of parts) {
-    if (part.length <= charLimit) {
-      result.push(part);
+    result.push(...splitAtBoundary(part, charLimit));
+  }
+  return result.length > 0 ? result : [text];
+}
+
+/** 
+ * Process a full message into independently-parsed parts.
+ * Each part from ✂️✂️✂️/:: split gets its own buttons, media, and text.
+ */
+export interface ProcessedMessagePart {
+  text: string;
+  inlineButtons: InlineButtonRow[];
+  media: ParsedMedia[];
+  albums: ParsedAlbum[];
+}
+
+export function processMessageIntoParts(rawText: string, defaultCharLimit: number = 4000): ProcessedMessagePart[] {
+  // 1. First split by explicit separators (✂️✂️✂️ or ::)
+  const explicitParts = rawText.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
+  if (explicitParts.length === 0) return [{ text: '', inlineButtons: [], media: [], albums: [] }];
+
+  const result: ProcessedMessagePart[] = [];
+
+  for (const part of explicitParts) {
+    // 2. Convert markdown in this part
+    const html = markdownToHtml(part);
+    // 3. Extract inline buttons for THIS part
+    const { cleanText: afterInline, buttons } = parseInlineCommands(html);
+    // 4. Extract media commands for THIS part
+    const { cleanText: afterMedia, media, albums } = parseMediaCommands(afterInline);
+
+    // 5. Determine char limit: if this part has media, use 1000 for first chunk
+    const hasPartMedia = media.length > 0 || albums.length > 0;
+    const firstLimit = hasPartMedia ? 1000 : defaultCharLimit;
+
+    // 6. Split the cleaned text if needed
+    const textChunks = splitAtBoundary(afterMedia.trim(), firstLimit);
+    
+    if (textChunks.length <= 1) {
+      // Single chunk — attach all buttons and media
+      result.push({
+        text: textChunks[0] || '',
+        inlineButtons: buttons,
+        media,
+        albums,
+      });
     } else {
-      let remaining = part;
-      while (remaining.length > 0) {
-        if (remaining.length <= charLimit) {
-          result.push(remaining);
-          break;
-        }
-        let splitIdx = remaining.lastIndexOf('\n', charLimit);
-        if (splitIdx < charLimit * 0.3) splitIdx = remaining.lastIndexOf(' ', charLimit);
-        if (splitIdx < charLimit * 0.3) splitIdx = charLimit;
-        result.push(remaining.slice(0, splitIdx).trim());
-        remaining = remaining.slice(splitIdx).trim();
+      // Multiple chunks: media goes on first, buttons go on last
+      for (let i = 0; i < textChunks.length; i++) {
+        const isFirst = i === 0;
+        const isLast = i === textChunks.length - 1;
+        result.push({
+          text: textChunks[i],
+          inlineButtons: isLast ? buttons : [],
+          media: isFirst ? media : [],
+          albums: isFirst ? albums : [],
+        });
+        // After first chunk with media, use standard limit for rest
+        // (splitAtBoundary already handled this with firstLimit for first split)
       }
     }
   }
-  return result.length > 0 ? result : [text];
+
+  return result;
 }
 
 /** Resolve macros like {{field_key}} with client data */

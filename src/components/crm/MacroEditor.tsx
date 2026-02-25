@@ -24,7 +24,7 @@ import {
   Scissors,
 } from 'lucide-react';
 import type { MessageField, TextFormat, MediaType, MediaAttachment } from '@/pages/CRMMessageConstructor';
-import { splitMessage, markdownToHtml, parseInlineCommands, parseMediaCommands } from '@/utils/messageParser';
+import { splitMessage, markdownToHtml, parseInlineCommands, parseMediaCommands, processMessageIntoParts, type ProcessedMessagePart } from '@/utils/messageParser';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Client = Tables<'clients'>;
@@ -193,19 +193,17 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
   const charLimit = hasMedia && useMediaCaption ? 1000 : 4000;
   const charCount = value.length;
 
-  // Split preview
+  // Process into independent parts with per-part buttons/media
+  const processedParts = useMemo(() => {
+    if (!value.trim()) return [];
+    return processMessageIntoParts(value);
+  }, [value]);
+
+  // Legacy split preview for char count
   const messageParts = useMemo(() => {
     if (!value.trim()) return [];
-    return splitMessage(value, charLimit);
-  }, [value, charLimit]);
-
-  // Parse inline commands and media commands for preview
-  const parsedPreview = useMemo(() => {
-    if (!value.trim()) return null;
-    const { cleanText, buttons } = parseInlineCommands(value);
-    const { cleanText: finalText, media: parsedMedia, albums } = parseMediaCommands(cleanText);
-    return { text: finalText, buttons, media: parsedMedia, albums };
-  }, [value]);
+    return processedParts.map(p => p.text);
+  }, [processedParts]);
 
   // Preview with real client data
   const previewWithData = useMemo(() => {
@@ -333,27 +331,95 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
         </span>
       </div>
 
-      {/* Split messages preview */}
-      {messageParts.length > 1 && (
+      {/* Split messages preview with per-part buttons/media */}
+      {processedParts.length > 1 && (
         <div className="space-y-1.5">
           <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Scissors className={iconSize} />
-            Сообщения будут разделены на {messageParts.length} частей:
+            Сообщения будут разделены на {processedParts.length} частей:
           </Label>
           <div className="space-y-1">
-            {messageParts.map((part, i) => (
-              <div key={i} className="bg-muted/30 rounded p-2 text-xs border border-border">
+            {processedParts.map((part, i) => (
+              <div key={i} className="bg-muted/30 rounded p-2 text-xs border border-border space-y-1">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] text-muted-foreground font-medium">Часть {i + 1}</span>
-                  <span className="text-[10px] text-muted-foreground">{part.length} символов</span>
+                  <span className="text-[10px] text-muted-foreground">{part.text.length} символов</span>
                 </div>
-                <p className="text-muted-foreground whitespace-pre-wrap line-clamp-3">{part}</p>
+                <p className="text-muted-foreground whitespace-pre-wrap line-clamp-3">{part.text}</p>
+                {/* Per-part media */}
+                {(part.media.length > 0 || part.albums.length > 0) && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {part.media.map((m, j) => (
+                      <span key={j} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                        {m.type === 'photo' && '🖼'}{m.type === 'video' && '🎬'}{m.type === 'document' && '📄'}
+                        {m.type === 'video_note' && '🔵'}{m.type === 'audio' && '🎵'}
+                        {' '}{m.source.length > 25 ? m.source.slice(0, 25) + '...' : m.source}
+                      </span>
+                    ))}
+                    {part.albums.map((a, j) => (
+                      <span key={`a-${j}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                        🗂 Альбом ({a.sources.length})
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Per-part buttons */}
+                {part.inlineButtons.length > 0 && (
+                  <div className="bg-[#1a1a1a] rounded p-1.5 space-y-0.5 mt-1">
+                    {part.inlineButtons.map((row, ri) => (
+                      <div key={ri} className="flex gap-1">
+                        {row.buttons.map((btn, bi) => (
+                          <div key={bi} className="flex-1 text-center py-0.5 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[9px] text-[#3390ec] truncate">
+                            {btn.type === 'link' && '🔗 '}{btn.type === 'webapp' && '🌐 '}{btn.text}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Single message: show buttons/media from text commands */}
+      {processedParts.length === 1 && processedParts[0]?.inlineButtons.length > 0 && (
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Кнопки из текстовых команд:</Label>
+          <div className="bg-[#1a1a1a] rounded-lg p-2 space-y-1">
+            {processedParts[0].inlineButtons.map((row, i) => (
+              <div key={i} className="flex gap-1">
+                {row.buttons.map((btn, j) => (
+                  <div key={j} className="flex-1 text-center py-1 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[10px] text-[#3390ec] truncate">
+                    {btn.type === 'link' && '🔗 '}{btn.type === 'webapp' && '🌐 '}{btn.text}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {processedParts.length === 1 && (processedParts[0]?.media.length > 0 || processedParts[0]?.albums.length > 0) && (
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Медиа из текстовых команд:</Label>
+          <div className="flex flex-wrap gap-1">
+            {processedParts[0].media.map((m, i) => (
+              <span key={i} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                {m.type === 'photo' && '🖼'}{m.type === 'video' && '🎬'}{m.type === 'document' && '📄'}
+                {m.type === 'video_note' && '🔵'}{m.type === 'audio' && '🎵'}
+                {' '}{m.source.length > 30 ? m.source.slice(0, 30) + '...' : m.source}
+              </span>
+            ))}
+            {processedParts[0].albums.map((a, i) => (
+              <span key={`album-${i}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                🗂 Альбом ({a.sources.length} файлов)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Preview with real data */}
       {previewClient && previewWithData && (
         <div className="space-y-1.5">
@@ -363,50 +429,6 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
           </Label>
           <div className="bg-[#1a1a1a] rounded-lg p-3 text-xs text-white/80 whitespace-pre-wrap">
             {previewWithData}
-          </div>
-        </div>
-      )}
-
-      {/* Parsed inline buttons preview from text commands */}
-      {parsedPreview && parsedPreview.buttons.length > 0 && (
-        <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Кнопки из текстовых команд:</Label>
-          <div className="bg-[#1a1a1a] rounded-lg p-2 space-y-1">
-            {parsedPreview.buttons.map((row, i) => (
-              <div key={i} className="flex gap-1">
-                {row.buttons.map((btn, j) => (
-                  <div key={j} className="flex-1 text-center py-1 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[10px] text-[#3390ec] truncate">
-                    {btn.type === 'link' && '🔗 '}
-                    {btn.type === 'webapp' && '🌐 '}
-                    {btn.text}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Parsed media from text commands */}
-      {parsedPreview && (parsedPreview.media.length > 0 || parsedPreview.albums.length > 0) && (
-        <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Медиа из текстовых команд:</Label>
-          <div className="flex flex-wrap gap-1">
-            {parsedPreview.media.map((m, i) => (
-              <span key={i} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                {m.type === 'photo' && '🖼'}
-                {m.type === 'video' && '🎬'}
-                {m.type === 'document' && '📄'}
-                {m.type === 'video_note' && '🔵'}
-                {m.type === 'audio' && '🎵'}
-                {' '}{m.source.length > 30 ? m.source.slice(0, 30) + '...' : m.source}
-              </span>
-            ))}
-            {parsedPreview.albums.map((a, i) => (
-              <span key={`album-${i}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                🗂 Альбом ({a.sources.length} файлов)
-              </span>
-            ))}
           </div>
         </div>
       )}
