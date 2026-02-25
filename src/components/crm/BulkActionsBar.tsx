@@ -39,7 +39,7 @@ import { CLIENT_STATUSES } from '@/components/crm/CRMFilters';
 import type { Tables } from '@/integrations/supabase/types';
 import type { MediaAttachment } from '@/pages/CRMMessageConstructor';
 import { ALL_CRM_FIELDS } from '@/pages/CRMMessageConstructor';
-import { resolveMacros, splitMessage, processMessageText, markdownToHtml } from '@/utils/messageParser';
+import { resolveMacros, processMessageIntoParts, markdownToHtml } from '@/utils/messageParser';
 
 type Client = Tables<'clients'>;
 
@@ -191,43 +191,43 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       
       for (const client of batch) {
         try {
-          // Convert markdown and process text commands
-          const htmlText = markdownToHtml(messageText);
-          const resolvedText = resolveMacros(htmlText, client as unknown as Record<string, unknown>);
+          // Resolve macros in raw text first (including inside ##INLINE## and ##IMG## commands)
+          const resolvedText = resolveMacros(messageText, client as unknown as Record<string, unknown>);
           
-          // Parse text commands (##INLINE:...##, ##IMG:...##, etc.)
-          const processed = processMessageText(resolvedText);
+          // Process into independent parts (each gets its own buttons/media)
+          const parts = processMessageIntoParts(resolvedText);
           
-          // Combine inline buttons from builder + text commands
-          const allButtons = [...inlineButtons, ...processed.inlineButtons];
+          // Merge UI-attached media into first part
+          const uiMedia: MediaAttachment[] = media.filter(m => m.url.trim());
           
-          // Combine media from attachments + text commands
-          const allMedia: MediaAttachment[] = [...media.filter(m => m.url.trim())];
-          for (const pm of processed.media) {
-            allMedia.push({
-              id: crypto.randomUUID(),
-              type: pm.type === 'video_note' || pm.type === 'audio' ? 'document' : pm.type,
-              url: pm.source,
-            });
-          }
-          for (const album of processed.albums) {
-            for (const source of album.sources) {
-              allMedia.push({ id: crypto.randomUUID(), type: 'photo', url: source });
-            }
-          }
-
-          const hasMediaFiles = allMedia.length > 0;
-          const charLimit = hasMediaFiles && useMediaCaption ? 1000 : 4000;
-          const parts = splitMessage(processed.text, charLimit);
-
           for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
             const isFirst = i === 0;
-            const isLast = i === parts.length - 1;
-            const partMedia = isFirst && hasMediaFiles ? allMedia : undefined;
-
-            // Resolve macros in inline button URLs/text
-            const resolvedButtons = isLast && allButtons.length > 0
-              ? allButtons.map(row => ({
+            
+            // Combine UI media with text-parsed media for first part
+            const partMedia: MediaAttachment[] = [];
+            if (isFirst && uiMedia.length > 0) {
+              partMedia.push(...uiMedia);
+            }
+            for (const pm of part.media) {
+              partMedia.push({
+                id: crypto.randomUUID(),
+                type: pm.type === 'video_note' || pm.type === 'audio' ? 'document' : pm.type,
+                url: pm.source,
+              });
+            }
+            for (const album of part.albums) {
+              for (const source of album.sources) {
+                partMedia.push({ id: crypto.randomUUID(), type: 'photo', url: source });
+              }
+            }
+            
+            // Combine UI inline buttons with text-parsed buttons for this part
+            const partButtons = [...(isFirst ? inlineButtons : []), ...part.inlineButtons];
+            
+            // Resolve macros in button text/URLs
+            const resolvedButtons = partButtons.length > 0
+              ? partButtons.map(row => ({
                   ...row,
                   buttons: row.buttons.map(btn => ({
                     ...btn,
@@ -238,16 +238,16 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                 }))
               : undefined;
 
-            // Include parsed media commands for the edge function
-            const textMediaCommands = isFirst ? processed.media : undefined;
+            const hasPartMedia = partMedia.length > 0;
+            const textMediaCommands = part.media.length > 0 ? part.media : undefined;
 
             await supabase.functions.invoke('send-telegram-message', {
               body: {
                 clientId: client.id,
                 telegramId: client.telegram_id,
-                message: parts[i],
-                media: partMedia,
-                useMediaCaption: isFirst && useMediaCaption,
+                message: part.text,
+                media: hasPartMedia ? partMedia : undefined,
+                useMediaCaption: hasPartMedia && useMediaCaption,
                 inlineButtons: resolvedButtons,
                 textMediaCommands,
               },
