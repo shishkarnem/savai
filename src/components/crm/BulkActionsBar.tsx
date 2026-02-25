@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ import { CLIENT_STATUSES } from '@/components/crm/CRMFilters';
 import type { Tables } from '@/integrations/supabase/types';
 import type { MediaAttachment } from '@/pages/CRMMessageConstructor';
 import { ALL_CRM_FIELDS } from '@/pages/CRMMessageConstructor';
-import { resolveMacros, processMessageIntoParts, markdownToHtml } from '@/utils/messageParser';
+import { resolveMacros, processMessageIntoParts, stripHtml } from '@/utils/messageParser';
 
 type Client = Tables<'clients'>;
 
@@ -69,6 +70,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [useMediaCaption, setUseMediaCaption] = useState(false);
   const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
+  const [disableWebPagePreview, setDisableWebPagePreview] = useState(false);
 
   // Save template state
   const [templateName, setTemplateName] = useState('');
@@ -132,6 +134,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     if (rawFields && !Array.isArray(rawFields) && rawFields.macroText) {
       setMessageText(rawFields.macroText);
     }
+    if (rawFields && rawFields.disableWebPagePreview !== undefined) {
+      setDisableWebPagePreview(rawFields.disableWebPagePreview);
+    }
   };
 
   // Save current settings as template
@@ -147,7 +152,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
         type: 'bulk_message',
         header_text: '',
         footer_text: '',
-        fields: { fieldsList: [], inlineButtons, macroText: messageText } as any,
+        fields: { fieldsList: [], inlineButtons, macroText: messageText, disableWebPagePreview } as any,
         media: (media.length > 0 ? media : []) as any,
         use_media_caption: useMediaCaption,
         is_active: true,
@@ -163,7 +168,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     }
   };
 
-  // --- BULK SEND MESSAGES (optimized with delays) ---
+  // --- BULK SEND MESSAGES ---
   const handleBulkSend = async () => {
     if (withTelegram.length === 0) {
       toast({ title: 'Ошибка', description: 'Нет клиентов с Telegram ID', variant: 'destructive' });
@@ -178,10 +183,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     const total = withTelegram.length;
     setSendProgress({ sent: 0, failed: 0, total });
 
-    // Process in batches of 25 with 1s delay between batches (Telegram rate limit: ~30 msg/s)
     const BATCH_SIZE = 25;
-    const BATCH_DELAY = 1500; // ms between batches
-    const INTER_MSG_DELAY = 200; // ms between individual messages within batch
+    const BATCH_DELAY = 1500;
+    const INTER_MSG_DELAY = 200;
 
     let sent = 0;
     let failed = 0;
@@ -191,65 +195,64 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       
       for (const client of batch) {
         try {
-          // Resolve macros in raw text first (including inside ##INLINE## and ##IMG## commands)
+          // Resolve macros in raw text (before parsing commands)
           const resolvedText = resolveMacros(messageText, client as unknown as Record<string, unknown>);
           
           // Process into independent parts (each gets its own buttons/media)
           const parts = processMessageIntoParts(resolvedText);
           
-          // Merge UI-attached media into first part
+          // UI-attached media
           const uiMedia: MediaAttachment[] = media.filter(m => m.url.trim());
           
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             const isFirst = i === 0;
             
-            // Combine UI media with text-parsed media for first part
+            // Build media array: UI media on first part + text-parsed media on each part
             const partMedia: MediaAttachment[] = [];
             if (isFirst && uiMedia.length > 0) {
               partMedia.push(...uiMedia);
             }
+            // Convert text-parsed media to MediaAttachment format
             for (const pm of part.media) {
               partMedia.push({
                 id: crypto.randomUUID(),
-                type: pm.type === 'video_note' || pm.type === 'audio' ? 'document' : pm.type,
+                type: pm.type as any, // video_note, audio etc
                 url: pm.source,
               });
             }
+            // Convert albums to individual photo items
             for (const album of part.albums) {
               for (const source of album.sources) {
                 partMedia.push({ id: crypto.randomUUID(), type: 'photo', url: source });
               }
             }
             
-            // Combine UI inline buttons with text-parsed buttons for this part
+            // Combine UI buttons (first part only) + text-parsed buttons
             const partButtons = [...(isFirst ? inlineButtons : []), ...part.inlineButtons];
             
-            // Resolve macros in button text/URLs
+            // Resolve macros in buttons and STRIP HTML from button text
             const resolvedButtons = partButtons.length > 0
               ? partButtons.map(row => ({
                   ...row,
                   buttons: row.buttons.map(btn => ({
                     ...btn,
-                    text: resolveMacros(btn.text, client as unknown as Record<string, unknown>),
+                    text: stripHtml(resolveMacros(btn.text, client as unknown as Record<string, unknown>)),
                     url: btn.url ? resolveMacros(btn.url, client as unknown as Record<string, unknown>) : btn.url,
                     callbackData: btn.callbackData ? resolveMacros(btn.callbackData, client as unknown as Record<string, unknown>) : btn.callbackData,
                   })),
                 }))
               : undefined;
 
-            const hasPartMedia = partMedia.length > 0;
-            const textMediaCommands = part.media.length > 0 ? part.media : undefined;
-
             await supabase.functions.invoke('send-telegram-message', {
               body: {
                 clientId: client.id,
                 telegramId: client.telegram_id,
                 message: part.text,
-                media: hasPartMedia ? partMedia : undefined,
-                useMediaCaption: hasPartMedia && useMediaCaption,
+                media: partMedia.length > 0 ? partMedia : undefined,
+                useMediaCaption: partMedia.length > 0 && useMediaCaption,
                 inlineButtons: resolvedButtons,
-                textMediaCommands,
+                disableWebPagePreview,
               },
             });
 
@@ -263,7 +266,6 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
         await new Promise(r => setTimeout(r, INTER_MSG_DELAY));
       }
 
-      // Delay between batches
       if (batchStart + BATCH_SIZE < withTelegram.length) {
         await new Promise(r => setTimeout(r, BATCH_DELAY));
       }
@@ -446,7 +448,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             </Button>
           </div>
 
-          {/* Macro editor with preview client */}
+          {/* Macro editor */}
           <MacroEditor
             value={messageText}
             onChange={setMessageText}
@@ -457,6 +459,19 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             onUseMediaCaptionChange={setUseMediaCaption}
             previewClient={previewClient}
           />
+
+          {/* Link preview toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={disableWebPagePreview}
+              onCheckedChange={setDisableWebPagePreview}
+              id="bulkDisablePreview"
+              className="scale-75"
+            />
+            <Label htmlFor="bulkDisablePreview" className="text-[10px]">
+              Отключить предпросмотр ссылок в сообщении
+            </Label>
+          </div>
 
           {/* Preview client selector */}
           {withTelegram.length > 0 && (
@@ -485,7 +500,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             onChange={setInlineButtons}
           />
 
-          {/* Progress bar during sending */}
+          {/* Progress bar */}
           {isProcessing && sendProgress.total > 0 && (
             <div className="space-y-2">
               <Progress value={progressPercent} className="h-2" />

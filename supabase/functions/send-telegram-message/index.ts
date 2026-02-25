@@ -8,14 +8,9 @@ const corsHeaders = {
 
 interface MediaAttachment {
   id: string;
-  type: 'photo' | 'video' | 'document' | 'album';
+  type: 'photo' | 'video' | 'document' | 'album' | 'video_note' | 'audio';
   url: string;
   caption?: string;
-}
-
-interface TextMediaCommand {
-  type: 'photo' | 'video' | 'document' | 'video_note' | 'audio';
-  source: string;
 }
 
 interface InlineButton {
@@ -39,7 +34,12 @@ interface SendMessageRequest {
   media?: MediaAttachment[];
   useMediaCaption?: boolean;
   inlineButtons?: InlineButtonRow[];
-  textMediaCommands?: TextMediaCommand[];
+  disableWebPagePreview?: boolean;
+}
+
+/** Strip HTML tags from text (for button labels) */
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]+>/g, '');
 }
 
 function buildReplyMarkup(inlineButtons?: InlineButtonRow[]) {
@@ -47,8 +47,8 @@ function buildReplyMarkup(inlineButtons?: InlineButtonRow[]) {
   return {
     inline_keyboard: inlineButtons.map(row =>
       row.buttons.map(btn => {
-        const base: Record<string, unknown> = { text: btn.text };
-        // Add style if not default
+        // Strip HTML from button text — Telegram buttons don't support formatting
+        const base: Record<string, unknown> = { text: stripHtml(btn.text) };
         if (btn.style && btn.style !== 'default') {
           base.style = btn.style;
         }
@@ -63,26 +63,6 @@ function buildReplyMarkup(inlineButtons?: InlineButtonRow[]) {
       })
     ),
   };
-}
-
-/** Convert markdown-style formatting to HTML if present */
-function autoConvertMarkdownToHtml(text: string): string {
-  let result = text;
-  // Bold: **text**
-  result = result.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-  result = result.replace(/__(.+?)__/g, '<b>$1</b>');
-  // Italic: *text* (not inside tags)
-  result = result.replace(/(?<![<\w])_([^_\n]+?)_(?![>\w])/g, '<i>$1</i>');
-  result = result.replace(/(?<![<\w])\*([^*\n]+?)\*(?![>\w])/g, '<i>$1</i>');
-  // Strikethrough: ~~text~~
-  result = result.replace(/~~(.+?)~~/g, '<s>$1</s>');
-  // Inline code: `text`
-  result = result.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
-  // Code block: ```text```
-  result = result.replace(/```\n?([\s\S]*?)\n?```/g, '<pre>$1</pre>');
-  // Links: [text](url)
-  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-  return result;
 }
 
 async function sendTelegramRequest(token: string, method: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -115,13 +95,10 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { clientId, telegramId, message, media, useMediaCaption, inlineButtons, textMediaCommands }: SendMessageRequest = await req.json();
+    const { clientId, telegramId, message, media, useMediaCaption, inlineButtons, disableWebPagePreview }: SendMessageRequest = await req.json();
     const replyMarkup = buildReplyMarkup(inlineButtons);
 
-    // Auto-convert markdown to HTML
-    const htmlMessage = message ? autoConvertMarkdownToHtml(message) : message;
-
-    console.log(`Sending to ${telegramId} | Client: ${clientId} | Msg: ${htmlMessage?.substring(0, 50)}... | Media: ${media?.length || 0} | TextMedia: ${textMediaCommands?.length || 0}`);
+    console.log(`Sending to ${telegramId} | Client: ${clientId} | Msg: ${message?.substring(0, 50)}... | Media: ${media?.length || 0}`);
 
     if (!telegramId || !clientId) {
       return new Response(
@@ -130,10 +107,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const hasMedia = media && media.length > 0 && media.some(m => m.url.trim());
-    const hasTextMedia = textMediaCommands && textMediaCommands.length > 0;
-    
-    if (!htmlMessage && !hasMedia && !hasTextMedia) {
+    // Separate media by type
+    const validMedia = (media || []).filter(m => m.url?.trim());
+    const specialMedia = validMedia.filter(m => m.type === 'video_note' || m.type === 'audio');
+    const standardMedia = validMedia.filter(m => m.type !== 'video_note' && m.type !== 'audio');
+    const hasStandardMedia = standardMedia.length > 0;
+    const hasSpecialMedia = specialMedia.length > 0;
+    const hasText = !!message?.trim();
+
+    if (!hasText && !hasStandardMedia && !hasSpecialMedia) {
       return new Response(
         JSON.stringify({ error: "Either message or media is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -141,7 +123,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Create message record
-    const messageText = htmlMessage || (hasMedia || hasTextMedia ? '[Медиафайл]' : '');
+    const messageText = message || (hasStandardMedia || hasSpecialMedia ? '[Медиафайл]' : '');
     const { data: messageRecord, error: insertError } = await supabase
       .from("client_messages")
       .insert({
@@ -163,61 +145,44 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     let telegramResult: { ok: boolean; result?: { message_id: number }; description?: string } = { ok: false };
+    let buttonsAttached = false;
 
     try {
-      // Handle text media commands (##VIDEO_NOTE:id##, ##AUDIO:url##, etc.)
-      if (hasTextMedia) {
-        for (const cmd of textMediaCommands!) {
-          const methodMap: Record<string, string> = {
-            photo: 'sendPhoto',
-            video: 'sendVideo',
-            document: 'sendDocument',
-            video_note: 'sendVideoNote',
-            audio: 'sendAudio',
-          };
-          const fieldMap: Record<string, string> = {
-            photo: 'photo',
-            video: 'video',
-            document: 'document',
-            video_note: 'video_note',
-            audio: 'audio',
-          };
-          const method = methodMap[cmd.type] || 'sendDocument';
-          const field = fieldMap[cmd.type] || 'document';
-          
-          const body: Record<string, unknown> = {
-            chat_id: telegramId,
-            [field]: cmd.source,
-          };
-          
-          // For video_note, no caption support
-          if (cmd.type !== 'video_note' && useMediaCaption && htmlMessage && htmlMessage.length <= 1000) {
-            body.caption = htmlMessage;
-            body.parse_mode = 'HTML';
-          }
-          
-          const result = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, method, body);
-          if (!(result as any).ok) {
-            console.error(`Text media error (${cmd.type}):`, (result as any).description);
-          } else {
-            telegramResult = result as any;
-          }
-          await new Promise(r => setTimeout(r, 100));
+      // 1. Send special media (video_note, audio) — no buttons, no caption for video_note
+      for (const m of specialMedia) {
+        const methodMap: Record<string, { method: string; field: string }> = {
+          video_note: { method: 'sendVideoNote', field: 'video_note' },
+          audio: { method: 'sendAudio', field: 'audio' },
+        };
+        const { method, field } = methodMap[m.type] || { method: 'sendDocument', field: 'document' };
+        const body: Record<string, unknown> = { chat_id: telegramId, [field]: m.url };
+        
+        // Audio supports caption, video_note does not
+        if (m.type === 'audio' && useMediaCaption && hasText && message!.length <= 1000) {
+          body.caption = message;
+          body.parse_mode = 'HTML';
         }
+        
+        const result = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, method, body);
+        if (!(result as any).ok) {
+          console.error(`Special media error (${m.type}):`, (result as any).description);
+        } else {
+          telegramResult = result as any;
+        }
+        await new Promise(r => setTimeout(r, 100));
       }
 
-      // Handle standard media
-      if (hasMedia) {
-        const validMedia = media!.filter(m => m.url.trim());
-        
-        if (validMedia.length > 1) {
-          const mediaGroup = validMedia.map((m, index) => {
+      // 2. Send standard media (photo, video, document)
+      if (hasStandardMedia) {
+        if (standardMedia.length > 1) {
+          // Media group (album)
+          const mediaGroup = standardMedia.map((m, index) => {
             const mediaItem: Record<string, string> = {
               type: m.type === 'document' ? 'document' : m.type === 'video' ? 'video' : 'photo',
               media: m.url,
             };
-            if (index === 0 && useMediaCaption && htmlMessage) {
-              mediaItem.caption = htmlMessage;
+            if (index === 0 && useMediaCaption && hasText) {
+              mediaItem.caption = message!;
               mediaItem.parse_mode = 'HTML';
             }
             return mediaItem;
@@ -227,23 +192,29 @@ const handler = async (req: Request): Promise<Response> => {
             chat_id: telegramId,
             media: mediaGroup,
           }) as any;
-          
-          if (!useMediaCaption && htmlMessage) {
+
+          // After album: send text (if not caption) OR buttons as separate message
+          if (!useMediaCaption && hasText) {
             await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
               chat_id: telegramId,
-              text: htmlMessage,
+              text: message,
               parse_mode: "HTML",
+              disable_web_page_preview: disableWebPagePreview || false,
               ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             });
+            buttonsAttached = true;
           } else if (replyMarkup) {
+            // Buttons only (can't attach to album)
             await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
               chat_id: telegramId,
               text: "⬇️",
               reply_markup: replyMarkup,
             });
+            buttonsAttached = true;
           }
         } else {
-          const singleMedia = validMedia[0];
+          // Single media
+          const singleMedia = standardMedia[0];
           const methodMap: Record<string, { method: string; field: string }> = {
             photo: { method: 'sendPhoto', field: 'photo' },
             video: { method: 'sendVideo', field: 'video' },
@@ -251,47 +222,70 @@ const handler = async (req: Request): Promise<Response> => {
           };
           const { method, field } = methodMap[singleMedia.type] || methodMap.photo;
 
-          telegramResult = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, method, {
+          const body: Record<string, unknown> = {
             chat_id: telegramId,
             [field]: singleMedia.url,
-            ...(useMediaCaption && htmlMessage ? { caption: htmlMessage, parse_mode: 'HTML' } : {}),
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          }) as any;
+          };
+          if (useMediaCaption && hasText) {
+            body.caption = message;
+            body.parse_mode = 'HTML';
+          }
+          if (replyMarkup) {
+            body.reply_markup = replyMarkup;
+            buttonsAttached = true;
+          }
 
-          if (!useMediaCaption && htmlMessage) {
+          telegramResult = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, method, body) as any;
+
+          // Send text separately if not used as caption
+          if (!useMediaCaption && hasText) {
             await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
               chat_id: telegramId,
-              text: htmlMessage,
+              text: message,
               parse_mode: "HTML",
-              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+              disable_web_page_preview: disableWebPagePreview || false,
+              ...(!buttonsAttached && replyMarkup ? { reply_markup: replyMarkup } : {}),
             });
+            buttonsAttached = true;
           }
         }
-      } else if (!hasTextMedia) {
-        // Text-only message
+      }
+
+      // 3. Text-only message (no standard media was sent)
+      if (!hasStandardMedia && !hasSpecialMedia && hasText) {
         telegramResult = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: telegramId,
-          text: htmlMessage,
+          text: message,
           parse_mode: "HTML",
+          disable_web_page_preview: disableWebPagePreview || false,
           ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }) as any;
-      } else if (htmlMessage && !useMediaCaption) {
-        // Text media already sent; send remaining text
+        buttonsAttached = true;
+      } else if (!hasStandardMedia && hasSpecialMedia && hasText && !(specialMedia.some(m => m.type === 'audio') && useMediaCaption && message!.length <= 1000)) {
+        // Special media was sent but text wasn't used as caption — send text separately
         telegramResult = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: telegramId,
-          text: htmlMessage,
+          text: message,
           parse_mode: "HTML",
+          disable_web_page_preview: disableWebPagePreview || false,
           ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }) as any;
-      } else if (replyMarkup && !htmlMessage) {
-        // Only buttons remain
-        telegramResult = await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
+        buttonsAttached = true;
+      } else if (!hasStandardMedia && hasSpecialMedia && !hasText) {
+        telegramResult = { ok: true };
+      }
+
+      // 4. If buttons still not sent
+      if (!buttonsAttached && replyMarkup) {
+        await sendTelegramRequest(TELEGRAM_BOT_TOKEN, 'sendMessage', {
           chat_id: telegramId,
           text: "⬇️",
           reply_markup: replyMarkup,
-        }) as any;
-      } else {
-        // Mark as ok if text media was sent
+        });
+      }
+
+      // If only special media was sent and result is still not ok, mark as ok
+      if (hasSpecialMedia && !hasStandardMedia && !hasText && !telegramResult.ok) {
         telegramResult = { ok: true };
       }
     } catch (sendErr) {
