@@ -244,13 +244,17 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                 }))
               : undefined;
 
+            // Auto-enable caption mode when media comes from text commands
+            const hasTextParsedMedia = part.media.length > 0 || part.albums.length > 0;
+            const effectiveUseCaption = partMedia.length > 0 && (useMediaCaption || hasTextParsedMedia);
+
             await supabase.functions.invoke('send-telegram-message', {
               body: {
                 clientId: client.id,
                 telegramId: client.telegram_id,
                 message: part.text,
                 media: partMedia.length > 0 ? partMedia : undefined,
-                useMediaCaption: partMedia.length > 0 && useMediaCaption,
+                useMediaCaption: effectiveUseCaption,
                 inlineButtons: resolvedButtons,
                 disableWebPagePreview,
               },
