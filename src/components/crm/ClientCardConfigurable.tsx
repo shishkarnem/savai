@@ -301,7 +301,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
 
       {/* Main Client Card Dialog */}
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0">
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 w-[95vw] sm:w-full mx-auto">
           <DialogHeader className="p-6 pb-4 border-b border-border">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
