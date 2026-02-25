@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2, MessageSquare, Send } from 'lucide-react';
+import { RefreshCw, ArrowLeft, Users, LayoutGrid, List, BarChart3, Download, Shield, Loader2, MessageSquare, Send, ScrollText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
@@ -491,6 +491,16 @@ const AdminCRM: React.FC = () => {
                   >
                     <Send className="h-4 w-4" />
                     <span className="hidden sm:inline">Шаблон рассылки</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/admin/crm/logs')}
+                    className="gap-2"
+                    title="Логи всех сообщений"
+                  >
+                    <ScrollText className="h-4 w-4" />
+                    <span className="hidden sm:inline">Логи</span>
                   </Button>
                   <Button
                     variant="outline"

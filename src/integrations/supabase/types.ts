@@ -45,6 +45,8 @@ export type Database = {
           direction: string
           error_message: string | null
           id: string
+          inline_buttons: Json | null
+          media: Json | null
           message: string
           sent_at: string
           status: string
@@ -56,6 +58,8 @@ export type Database = {
           direction: string
           error_message?: string | null
           id?: string
+          inline_buttons?: Json | null
+          media?: Json | null
           message: string
           sent_at?: string
           status?: string
@@ -67,6 +71,8 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          inline_buttons?: Json | null
+          media?: Json | null
           message?: string
           sent_at?: string
           status?: string

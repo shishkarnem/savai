@@ -25,6 +25,7 @@ import AdminCRM from "./pages/AdminCRM";
 import CRMDashboard from "./pages/CRMDashboard";
 import CRMAdmins from "./pages/CRMAdmins";
 import CRMMessageConstructor from "./pages/CRMMessageConstructor";
+import CRMMessageLogs from "./pages/CRMMessageLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/admin/crm/dashboard" element={<CRMDashboard />} />
             <Route path="/admin/crm/admins" element={<CRMAdmins />} />
             <Route path="/admin/crm/messages" element={<CRMMessageConstructor />} />
+            <Route path="/admin/crm/logs" element={<CRMMessageLogs />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -132,6 +132,8 @@ const handler = async (req: Request): Promise<Response> => {
         direction: "outgoing",
         message: messageText,
         status: "pending",
+        media: validMedia.length > 0 ? validMedia : [],
+        inline_buttons: inlineButtons || [],
       })
       .select()
       .single();
