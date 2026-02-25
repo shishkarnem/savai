@@ -34,7 +34,7 @@ import { useCRMAccess } from '@/hooks/useCRMAccess';
 import { AccessDenied } from '@/components/crm/AccessDenied';
 import { BulkActionsBar } from '@/components/crm/BulkActionsBar';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 const ITEMS_PER_PAGE = 20;
 
@@ -111,7 +111,7 @@ const AdminCRM: React.FC = () => {
     queryKey: ['admin-clients'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .select('*')
         .order('created_at', { ascending: false });
       
@@ -149,7 +149,7 @@ const AdminCRM: React.FC = () => {
     
     setIsAISearching(true);
     try {
-      const response = await supabase.functions.invoke('ai-search-clients', {
+      const response = await supabase.functions.invoke('sav-ai-search-clients', {
         body: { query: search, clients },
       });
       
@@ -197,7 +197,7 @@ const AdminCRM: React.FC = () => {
   const handleBulkSync = useCallback(async () => {
     setIsBulkSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+      const { data, error } = await supabase.functions.invoke('sav-sync-telegram-profile', {
         body: { bulk_sync: true, limit: 50 },
       });
 

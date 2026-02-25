@@ -27,7 +27,7 @@ import type { MessageField, TextFormat, MediaType, MediaAttachment } from '@/pag
 import { splitMessage, markdownToHtml, parseInlineCommands, parseMediaCommands, processMessageIntoParts, type ProcessedMessagePart } from '@/utils/messageParser';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 const CATEGORY_LABELS: Record<string, string> = {
   client: '👤 Клиент',

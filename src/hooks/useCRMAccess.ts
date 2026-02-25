@@ -56,7 +56,7 @@ export function useCRMAccess(): CRMAccessState {
       try {
         // Check if user is in crm_admins table
         const { data, error } = await supabase
-          .from('crm_admins')
+          .from('sav_crm_admins')
           .select('access_level')
           .eq('telegram_id', profile.telegram_id)
           .single();

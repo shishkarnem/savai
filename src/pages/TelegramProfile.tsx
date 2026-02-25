@@ -23,8 +23,8 @@ interface UserCalculation {
   created_at: string;
 }
 
-type Client = Tables<'clients'>;
-type TelegramProfileType = Tables<'telegram_profiles'>;
+type Client = Tables<'sav_clients'>;
+type TelegramProfileType = Tables<'sav_telegram_profiles'>;
 
 const getStatusColor = (status: string | null): string => {
   switch (status) {
@@ -90,7 +90,7 @@ const TelegramProfile: React.FC = () => {
       if (isNaN(telegramIdNum)) return [];
       
       const { data, error } = await supabase
-        .from('user_calculations')
+        .from('sav_user_calculations')
         .select('*')
         .eq('telegram_id', telegramIdNum)
         .order('created_at', { ascending: false })
@@ -136,7 +136,7 @@ const TelegramProfile: React.FC = () => {
       if (!targetTelegramId) return null;
       
       const { data, error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .select('*')
         .eq('telegram_id', targetTelegramId)
         .maybeSingle();
@@ -160,7 +160,7 @@ const TelegramProfile: React.FC = () => {
       if (isNaN(telegramIdNum)) return null;
       
       const { data, error } = await supabase
-        .from('telegram_profiles')
+        .from('sav_telegram_profiles')
         .select('*')
         .eq('telegram_id', telegramIdNum)
         .maybeSingle();

@@ -50,8 +50,8 @@ serve(async (req) => {
   }
 
   try {
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_EXPERT_CHAT_ID = Deno.env.get("TELEGRAM_EXPERT_CHAT_ID");
+    const TELEGRAM_BOT_TOKEN = Deno.env.get("SAV_TELEGRAM_BOT_TOKEN");
+    const TELEGRAM_EXPERT_CHAT_ID = Deno.env.get("SAV_TELEGRAM_EXPERT_CHAT_ID");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -69,7 +69,7 @@ serve(async (req) => {
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: templateData } = await supabase
-        .from("notification_templates")
+        .from("sav_notification_templates")
         .select("*")
         .eq("type", "tariff_selection")
         .eq("is_active", true)
@@ -238,7 +238,7 @@ serve(async (req) => {
     // Save to database
     if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await supabase.from("tariff_notifications").insert({
+      await supabase.from("sav_tariff_notifications").insert({
         telegram_id: clientInfo.telegramId ? parseInt(clientInfo.telegramId) : null,
         telegram_username: clientInfo.telegramUsername,
         tariff_name: tariffName,

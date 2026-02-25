@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     // Upsert cities into database
     for (const city of cities) {
       const { error } = await supabase
-        .from('cities')
+        .from('sav_cities')
         .upsert(
           {
             name: city.name,

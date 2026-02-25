@@ -32,7 +32,7 @@
      // Fetch all experts from database
      const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
      const { data: experts, error: dbError } = await supabase
-       .from("experts")
+       .from("sav_experts")
        .select("id, pseudonym, greeting, spheres, description, cases, tools");
  
      if (dbError) {

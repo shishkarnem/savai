@@ -141,7 +141,7 @@ export const TelegramAuthProvider: React.FC<{ children: ReactNode }> = ({ childr
 
       try {
         // Register or update user in database
-        const { data, error: fnError } = await supabase.functions.invoke('telegram-auth', {
+        const { data, error: fnError } = await supabase.functions.invoke('sav-telegram-auth', {
           body: { telegramUser: user, referralCode: startParam || null }
         });
 

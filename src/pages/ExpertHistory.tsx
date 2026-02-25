@@ -78,7 +78,7 @@ const ExpertHistory: React.FC = () => {
     const calculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
 
     try {
-      const response = await supabase.functions.invoke('notify-expert-selection', {
+      const response = await supabase.functions.invoke('sav-notify-expert-selection', {
         body: {
           expert: {
             id: expert.id,

@@ -1,37 +1,37 @@
 project_id = "ndghbgkcpjfevkygfxds"
 
-[functions.classify-business]
+[functions.sav-classify-business]
 verify_jwt = false
 
-[functions.sync-experts]
+[functions.sav-sync-experts]
 verify_jwt = false
 
-[functions.telegram-auth]
+[functions.sav-telegram-auth]
 verify_jwt = false
 
-[functions.sync-clients]
+[functions.sav-sync-clients]
 verify_jwt = false
 
-[functions.ai-search-clients]
+[functions.sav-ai-search-clients]
 verify_jwt = false
 
-[functions.send-telegram-message]
+[functions.sav-send-telegram-message]
 verify_jwt = false
 
-[functions.sync-telegram-profile]
+[functions.sav-sync-telegram-profile]
 verify_jwt = false
 
-[functions.notify-expert-selection]
+[functions.sav-notify-expert-selection]
 verify_jwt = false
 
-[functions.sync-cities]
+[functions.sav-sync-cities]
 verify_jwt = false
- 
- [functions.ai-match-experts]
- verify_jwt = false
- 
- [functions.ai-recommend-tariff]
- verify_jwt = false
- 
- [functions.notify-tariff-selection]
- verify_jwt = false
+
+[functions.sav-ai-match-experts]
+verify_jwt = false
+
+[functions.sav-ai-recommend-tariff]
+verify_jwt = false
+
+[functions.sav-notify-tariff-selection]
+verify_jwt = false

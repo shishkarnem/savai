@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 interface ClientCardProps {
   client: Client | null;

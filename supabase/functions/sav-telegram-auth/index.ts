@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     // Check if user already exists
     const { data: existingUser, error: selectError } = await supabase
-      .from("telegram_profiles")
+      .from("sav_telegram_profiles")
       .select("*")
       .eq("telegram_id", telegramUser.id)
       .maybeSingle();
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       }
 
       const { data: updatedUser, error: updateError } = await supabase
-        .from("telegram_profiles")
+      .from("sav_telegram_profiles")
         .update(updateData)
         .eq("telegram_id", telegramUser.id)
         .select()
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     } else {
       // Create new user
       const { data: newUser, error: insertError } = await supabase
-        .from("telegram_profiles")
+        .from("sav_telegram_profiles")
         .insert({
           telegram_id: telegramUser.id,
           first_name: telegramUser.first_name,

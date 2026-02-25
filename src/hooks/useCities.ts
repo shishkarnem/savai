@@ -12,7 +12,7 @@ export function useCities() {
     queryKey: ['cities'],
     queryFn: async (): Promise<City[]> => {
       const { data, error } = await supabase
-        .from('cities')
+        .from('sav_cities')
         .select('id, name, avg_salary')
         .order('name', { ascending: true });
       
@@ -28,7 +28,7 @@ export function useCities() {
 }
 
 export async function syncCities(): Promise<{ synced: number; errors: number }> {
-  const { data, error } = await supabase.functions.invoke('sync-cities');
+  const { data, error } = await supabase.functions.invoke('sav-sync-cities');
   
   if (error) {
     console.error('Error syncing cities:', error);

@@ -33,7 +33,7 @@ import {
 import type { Tables } from '@/integrations/supabase/types';
 import { resolveMacros, processMessageIntoParts, stripHtml } from '@/utils/messageParser';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 interface ClientChatProps {
   clientId: string;
@@ -89,7 +89,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     queryKey: ['client-messages', clientId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('client_messages')
+        .from('sav_client_messages')
         .select('*')
         .eq('client_id', clientId)
         .order('sent_at', { ascending: true });
@@ -104,7 +104,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     queryKey: ['chat-templates'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('notification_templates')
+        .from('sav_notification_templates')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -120,7 +120,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'client_messages',
+        table: 'sav_client_messages',
         filter: `client_id=eq.${clientId}`,
       }, () => {
         queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
@@ -169,7 +169,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     }
     setIsSavingTemplate(true);
     try {
-      const { error } = await supabase.from('notification_templates').insert([{
+      const { error } = await supabase.from('sav_notification_templates').insert([{
         name: newTemplateName.trim(),
         type: 'chat_message',
         header_text: '',
@@ -234,7 +234,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         const hasTextParsedMedia = part.media.length > 0 || part.albums.length > 0;
         const effectiveUseCaption = partMedia.length > 0 && (useMediaCaption || hasTextParsedMedia);
 
-        const response = await supabase.functions.invoke('send-telegram-message', {
+        const response = await supabase.functions.invoke('sav-send-telegram-message', {
           body: {
             clientId,
             telegramId,
@@ -253,7 +253,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
 
       // If no text but has media
       if (parts.length === 0 && uiMedia.length > 0) {
-        const response = await supabase.functions.invoke('send-telegram-message', {
+        const response = await supabase.functions.invoke('sav-send-telegram-message', {
           body: {
             clientId,
             telegramId,

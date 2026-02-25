@@ -23,7 +23,7 @@ const CalculatorStep7: React.FC = () => {
     const fetchExperts = async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from('experts')
+        .from('sav_experts')
         .select('*')
         .order('created_at', { ascending: true });
       

@@ -43,7 +43,7 @@ export function useNotificationTemplate(templateType: string, defaultHeaderText 
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from('notification_templates')
+          .from('sav_notification_templates')
           .select('*')
           .eq('type', templateType)
           .eq('is_active', true)
@@ -95,7 +95,7 @@ export function useNotificationTemplate(templateType: string, defaultHeaderText 
       if (templateId) {
         // Update existing
         const { error } = await supabase
-          .from('notification_templates')
+          .from('sav_notification_templates')
           .update(templateData)
           .eq('id', templateId);
 
@@ -103,7 +103,7 @@ export function useNotificationTemplate(templateType: string, defaultHeaderText 
       } else {
         // Insert new
         const { data, error } = await supabase
-          .from('notification_templates')
+          .from('sav_notification_templates')
           .insert(templateData)
           .select('id')
           .single();

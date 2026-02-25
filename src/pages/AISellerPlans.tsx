@@ -52,7 +52,7 @@ const AISellerPlans: React.FC = () => {
     extra?: { selectedTariff?: string; tariffPrice?: string; tariffDescription?: string; paymentModel?: string; currentStep?: string }
   ) => {
     try {
-      await supabase.functions.invoke('notify-tariff-selection', {
+      await supabase.functions.invoke('sav-notify-tariff-selection', {
         body: {
           tariffName: action,
           paymentType: payType,

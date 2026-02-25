@@ -139,7 +139,7 @@ const ExpertSelection: React.FC = () => {
   const fetchExperts = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('experts')
+      .from('sav_experts')
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -199,7 +199,7 @@ const ExpertSelection: React.FC = () => {
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
     try {
-      const response = await supabase.functions.invoke('notify-expert-selection', {
+      const response = await supabase.functions.invoke('sav-notify-expert-selection', {
         body: {
           expert: {
             id: expert.id,
@@ -372,7 +372,7 @@ const ExpertSelection: React.FC = () => {
     const calculatorData: CalculatorData = calculatorDataStr ? JSON.parse(calculatorDataStr) : {};
     
     try {
-      const response = await supabase.functions.invoke('notify-expert-selection', {
+      const response = await supabase.functions.invoke('sav-notify-expert-selection', {
         body: {
           expert: {
             id: selectedExpert.id,
