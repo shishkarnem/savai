@@ -308,7 +308,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
   }
 
   return (
-    <div className="flex flex-col h-[500px]">
+    <div className="flex flex-col h-[60vh] sm:h-[500px]">
       {/* Chat header */}
       <div className="flex items-center gap-2 pb-3 border-b border-border">
         <MessageSquare className="h-4 w-4 text-primary" />
