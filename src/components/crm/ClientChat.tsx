@@ -332,10 +332,55 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
           </div>
         ) : (
           <div className="space-y-3 pr-2">
-            {messages?.map((msg) => (
+            {messages?.map((msg) => {
+              const msgMedia = Array.isArray((msg as any).media) ? (msg as any).media as Array<{type: string; url: string}> : [];
+              const msgButtons = Array.isArray((msg as any).inline_buttons) ? (msg as any).inline_buttons as Array<{buttons: Array<{text: string; type: string; url?: string}>}> : [];
+              return (
               <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.direction === 'outgoing' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm whitespace-pre-wrap break-words [&_a]:break-all [&_code]:break-all" dangerouslySetInnerHTML={{ __html: msg.message }} />
+                  {/* Media attachments */}
+                  {msgMedia.length > 0 && (
+                    <div className={`mb-2 ${msgMedia.length > 1 ? 'grid grid-cols-2 gap-1' : ''}`}>
+                      {msgMedia.map((m, i) => {
+                        const isUrl = m.url?.startsWith('http');
+                        if (m.type === 'video' && isUrl) {
+                          return <video key={i} src={m.url} className="rounded max-w-full max-h-48 object-cover" controls muted preload="metadata" />;
+                        }
+                        if ((m.type === 'photo' || m.type === 'album') && isUrl) {
+                          return <img key={i} src={m.url} alt="" className="rounded max-w-full max-h-48 object-cover" loading="lazy" />;
+                        }
+                        return (
+                          <div key={i} className="flex items-center gap-1 text-[10px] opacity-70 py-1">
+                            📎 <span className="truncate">{m.url?.slice(0, 30)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {msg.message && msg.message !== '[Медиафайл]' && (
+                    <p className="text-sm whitespace-pre-wrap break-words [&_a]:break-all [&_code]:break-all" dangerouslySetInnerHTML={{ __html: msg.message }} />
+                  )}
+                  {/* Inline buttons */}
+                  {msgButtons.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {msgButtons.map((row, ri) => (
+                        <div key={ri} className="flex gap-1 flex-wrap">
+                          {row.buttons.map((btn, bi) => (
+                            btn.type === 'link' && btn.url ? (
+                              <a key={bi} href={btn.url} target="_blank" rel="noopener noreferrer"
+                                className={`flex-1 min-w-[60px] text-center py-1 px-2 rounded text-[10px] border ${msg.direction === 'outgoing' ? 'border-primary-foreground/30 text-primary-foreground/90 hover:bg-primary-foreground/10' : 'border-border text-foreground/80 hover:bg-accent'}`}>
+                                🔗 {btn.text}
+                              </a>
+                            ) : (
+                              <span key={bi} className={`flex-1 min-w-[60px] text-center py-1 px-2 rounded text-[10px] border ${msg.direction === 'outgoing' ? 'border-primary-foreground/30 text-primary-foreground/70' : 'border-border text-muted-foreground'}`}>
+                                {btn.text}
+                              </span>
+                            )
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className={`flex items-center gap-1 mt-1 ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                     <span className={`text-[10px] ${msg.direction === 'outgoing' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {format(new Date(msg.sent_at), 'HH:mm', { locale: ru })}
@@ -347,7 +392,8 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ScrollArea>

@@ -346,21 +346,17 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
                   <span className="text-[10px] text-muted-foreground">{part.text.length} символов</span>
                 </div>
                 <p className="text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">{part.text}</p>
-                {/* Per-part media */}
+                {/* Per-part media - visual previews */}
                 {(part.media.length > 0 || part.albums.length > 0) && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {part.media.map((m, j) => (
-                      <span key={j} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                        {m.type === 'photo' && '🖼'}{m.type === 'video' && '🎬'}{m.type === 'document' && '📄'}
-                        {m.type === 'video_note' && '🔵'}{m.type === 'audio' && '🎵'}
-                        {' '}{m.source.length > 25 ? m.source.slice(0, 25) + '...' : m.source}
-                      </span>
-                    ))}
-                    {part.albums.map((a, j) => (
-                      <span key={`a-${j}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                        🗂 Альбом ({a.sources.length})
-                      </span>
-                    ))}
+                  <div className="mt-1 space-y-1">
+                    <div className="grid grid-cols-3 gap-1">
+                      {part.media.map((m, j) => (
+                        <MediaPreviewThumb key={j} media={{ type: m.type, url: m.source }} />
+                      ))}
+                      {part.albums.flatMap((a, ai) => a.sources.map((src, si) => (
+                        <MediaPreviewThumb key={`a-${ai}-${si}`} media={{ type: 'photo', url: src }} />
+                      )))}
+                    </div>
                   </div>
                 )}
                 {/* Per-part buttons */}
@@ -404,19 +400,13 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
       {processedParts.length === 1 && (processedParts[0]?.media.length > 0 || processedParts[0]?.albums.length > 0) && (
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">Медиа из текстовых команд:</Label>
-          <div className="flex flex-wrap gap-1">
+          <div className="grid grid-cols-3 gap-1">
             {processedParts[0].media.map((m, i) => (
-              <span key={i} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                {m.type === 'photo' && '🖼'}{m.type === 'video' && '🎬'}{m.type === 'document' && '📄'}
-                {m.type === 'video_note' && '🔵'}{m.type === 'audio' && '🎵'}
-                {' '}{m.source.length > 30 ? m.source.slice(0, 30) + '...' : m.source}
-              </span>
+              <MediaPreviewThumb key={i} media={{ type: m.type, url: m.source }} />
             ))}
-            {processedParts[0].albums.map((a, i) => (
-              <span key={`album-${i}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
-                🗂 Альбом ({a.sources.length} файлов)
-              </span>
-            ))}
+            {processedParts[0].albums.flatMap((a, ai) => a.sources.map((src, si) => (
+              <MediaPreviewThumb key={`album-${ai}-${si}`} media={{ type: 'photo', url: src }} />
+            )))}
           </div>
         </div>
       )}
@@ -485,19 +475,22 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
             </div>
           ))}
 
-          {/* Media preview */}
+      {/* Media preview - visual */}
           {hasMedia && (
-            <div className="flex items-center gap-2 p-1.5 bg-muted/30 rounded text-[10px] text-muted-foreground">
-              {media[0].type === 'photo' && <Image className="w-3 h-3" />}
-              {media[0].type === 'video' && <Video className="w-3 h-3" />}
-              {media[0].type === 'document' && <File className="w-3 h-3" />}
-              {media[0].type === 'album' && <Image className="w-3 h-3" />}
-              <span>
-                {media.filter(m => m.url.trim()).length === 1
-                  ? MEDIA_TYPE_LABELS[media[0].type]
-                  : `Альбом (${media.filter(m => m.url.trim()).length} файлов)`}
-              </span>
-              {useMediaCaption && <span className="text-primary">+ подпись</span>}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>
+                  {media.filter(m => m.url.trim()).length === 1
+                    ? MEDIA_TYPE_LABELS[media[0].type]
+                    : `Альбом (${media.filter(m => m.url.trim()).length} файлов)`}
+                </span>
+                {useMediaCaption && <span className="text-primary">+ подпись</span>}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {media.filter(m => m.url.trim()).map((m) => (
+                  <MediaPreviewThumb key={m.id} media={m} />
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -525,6 +518,39 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
     </div>
   );
 };
+
+/** Thumbnail preview for a media attachment */
+function MediaPreviewThumb({ media }: { media: { type: string; url: string } }) {
+  const [error, setError] = React.useState(false);
+  const url = media.url.trim();
+  const isUrl = url.startsWith('http://') || url.startsWith('https://');
+
+  if (!isUrl || error) {
+    return (
+      <div className="aspect-square rounded border border-border bg-muted/30 flex flex-col items-center justify-center text-muted-foreground gap-1">
+        {media.type === 'video' ? <Video className="w-5 h-5" /> : media.type === 'document' ? <File className="w-5 h-5" /> : <Image className="w-5 h-5" />}
+        <span className="text-[8px] truncate max-w-full px-1">{url.length > 20 ? url.slice(0, 20) + '...' : url}</span>
+      </div>
+    );
+  }
+
+  if (media.type === 'video') {
+    return (
+      <div className="aspect-square rounded border border-border bg-black overflow-hidden relative">
+        <video src={url} className="w-full h-full object-cover" muted preload="metadata" onError={() => setError(true)} />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <Video className="w-6 h-6 text-white" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="aspect-square rounded border border-border overflow-hidden bg-muted/30">
+      <img src={url} alt="" className="w-full h-full object-cover" onError={() => setError(true)} loading="lazy" />
+    </div>
+  );
+}
 
 function LinkInsertButton({ onInsert, compact = false }: { onInsert: (url: string, text: string) => void; compact?: boolean }) {
   const [url, setUrl] = React.useState('');
