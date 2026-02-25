@@ -230,13 +230,17 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             }))
           : undefined;
 
+        // Auto-enable caption mode when media comes from text commands
+        const hasTextParsedMedia = part.media.length > 0 || part.albums.length > 0;
+        const effectiveUseCaption = partMedia.length > 0 && (useMediaCaption || hasTextParsedMedia);
+
         const response = await supabase.functions.invoke('send-telegram-message', {
           body: {
             clientId,
             telegramId,
             message: part.text,
             media: partMedia.length > 0 ? partMedia : undefined,
-            useMediaCaption: partMedia.length > 0 && useMediaCaption,
+            useMediaCaption: effectiveUseCaption,
             inlineButtons: resolvedButtons,
             disableWebPagePreview,
           },
