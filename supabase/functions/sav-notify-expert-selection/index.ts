@@ -160,8 +160,8 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_EXPERT_CHAT_ID = Deno.env.get("TELEGRAM_EXPERT_CHAT_ID");
+    const TELEGRAM_BOT_TOKEN = Deno.env.get("SAV_TELEGRAM_BOT_TOKEN");
+    const TELEGRAM_EXPERT_CHAT_ID = Deno.env.get("SAV_TELEGRAM_EXPERT_CHAT_ID");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -187,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
       
       // Load template
       const { data: templateData } = await supabase
-        .from("notification_templates")
+        .from("sav_notification_templates")
         .select("*")
         .eq("type", "expert_selection")
         .eq("is_active", true)
@@ -201,7 +201,7 @@ const handler = async (req: Request): Promise<Response> => {
       // Load client data from clients table
       if (clientInfo.telegramId) {
         const { data: clientRecord } = await supabase
-          .from("clients")
+          .from("sav_clients")
           .select("*")
           .eq("telegram_id", clientInfo.telegramId)
           .maybeSingle();

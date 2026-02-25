@@ -273,7 +273,7 @@ Deno.serve(async (req) => {
 
         // Upsert (insert or update)
         const { error } = await supabase
-          .from('clients')
+          .from('sav_clients')
           .upsert(clientData, { onConflict: 'sheet_row_id' });
 
         if (error) {

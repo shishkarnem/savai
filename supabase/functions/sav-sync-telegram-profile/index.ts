@@ -86,9 +86,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const botToken = Deno.env.get('SAV_TELEGRAM_BOT_TOKEN');
     if (!botToken) {
-      console.error('TELEGRAM_BOT_TOKEN not configured');
+      console.error('SAV_TELEGRAM_BOT_TOKEN not configured');
       return new Response(
         JSON.stringify({ error: 'Bot token not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       
       // Check if profile exists
       const { data: existing } = await supabase
-        .from('telegram_profiles')
+        .from('sav_telegram_profiles')
         .select('id')
         .eq('telegram_id', telegramIdNum)
         .maybeSingle();
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       if (existing) {
         // Update existing
         const { data, error } = await supabase
-          .from('telegram_profiles')
+          .from('sav_telegram_profiles')
           .update({
             first_name: profile.first_name,
             last_name: profile.last_name,
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       } else {
         // Insert new
         const { data, error } = await supabase
-          .from('telegram_profiles')
+          .from('sav_telegram_profiles')
           .insert({
             telegram_id: telegramIdNum,
             first_name: profile.first_name,
@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
 
       // Get clients with telegram_id that don't have a profile yet
       const { data: clients, error: clientsError } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .select('telegram_id')
         .not('telegram_id', 'is', null)
         .limit(limit);
@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
 
       // Get existing profiles
       const { data: existingProfiles } = await supabase
-        .from('telegram_profiles')
+        .from('sav_telegram_profiles')
         .select('telegram_id');
 
       const existingIds = new Set(
@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
           const telegramIdNum = parseInt(client.telegram_id, 10);
           
           const { error: insertError } = await supabase
-            .from('telegram_profiles')
+            .from('sav_telegram_profiles')
             .insert({
               telegram_id: telegramIdNum,
               first_name: profile.first_name,

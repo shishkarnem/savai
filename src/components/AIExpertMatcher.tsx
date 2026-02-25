@@ -43,7 +43,7 @@
  
      setIsLoading(true);
      try {
-       const { data, error } = await supabase.functions.invoke('ai-match-experts', {
+       const { data, error } = await supabase.functions.invoke('sav-ai-match-experts', {
          body: { businessDescription },
        });
  

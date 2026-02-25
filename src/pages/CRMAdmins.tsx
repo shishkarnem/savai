@@ -91,7 +91,7 @@ export default function CRMAdmins() {
     queryKey: ['crm-admins'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('crm_admins')
+        .from('sav_crm_admins')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -105,7 +105,7 @@ export default function CRMAdmins() {
   const addAdminMutation = useMutation({
     mutationFn: async (admin: { telegram_id: number; name: string; access_level: AccessLevel }) => {
       const { data, error } = await supabase
-        .from('crm_admins')
+        .from('sav_crm_admins')
         .insert(admin)
         .select()
         .single();
@@ -139,7 +139,7 @@ export default function CRMAdmins() {
   const updateAdminMutation = useMutation({
     mutationFn: async ({ id, access_level }: { id: string; access_level: AccessLevel }) => {
       const { error } = await supabase
-        .from('crm_admins')
+        .from('sav_crm_admins')
         .update({ access_level, updated_at: new Date().toISOString() })
         .eq('id', id);
 
@@ -164,7 +164,7 @@ export default function CRMAdmins() {
   const deleteAdminMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('crm_admins')
+        .from('sav_crm_admins')
         .delete()
         .eq('id', id);
 

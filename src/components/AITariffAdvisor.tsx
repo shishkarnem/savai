@@ -71,7 +71,7 @@ export const AITariffAdvisor: React.FC<AITariffAdvisorProps> = ({
   const getRecommendation = async (finalAnswers: Record<string, string>) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('ai-recommend-tariff', {
+      const { data, error } = await supabase.functions.invoke('sav-ai-recommend-tariff', {
         body: {
           answers: finalAnswers,
           plans: plans || [],

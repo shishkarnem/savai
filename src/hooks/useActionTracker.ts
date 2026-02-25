@@ -43,7 +43,7 @@ export function useActionTracker(flowType: 'calculator' | 'ai_seller') {
     try {
       if (sessionIdRef.current) {
         await supabase
-          .from('user_calculations')
+          .from('sav_user_calculations')
           .update({ data: sessionData as Json })
           .eq('id', sessionIdRef.current);
       } else {
@@ -52,7 +52,7 @@ export function useActionTracker(flowType: 'calculator' | 'ai_seller') {
           startedAt: new Date().toISOString(),
         };
         const { data, error } = await supabase
-          .from('user_calculations')
+          .from('sav_user_calculations')
           .insert([{
             telegram_id: telegramId,
             calculation_type: flowType,
@@ -85,7 +85,7 @@ export function useActionTracker(flowType: 'calculator' | 'ai_seller') {
     try {
       if (sessionIdRef.current) {
         await supabase
-          .from('user_calculations')
+          .from('sav_user_calculations')
           .update({ data: sessionData as Json })
           .eq('id', sessionIdRef.current);
       } else {
@@ -94,7 +94,7 @@ export function useActionTracker(flowType: 'calculator' | 'ai_seller') {
           startedAt: new Date().toISOString(),
         };
         const { data, error } = await supabase
-          .from('user_calculations')
+          .from('sav_user_calculations')
           .insert([{
             telegram_id: telegramId,
             calculation_type: flowType,

@@ -29,7 +29,7 @@ import {
   LabelList,
 } from 'recharts';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 const STATUS_COLORS: Record<string, string> = {
   'Инфо': '#EAB308',
@@ -74,7 +74,7 @@ const CRMDashboard: React.FC = () => {
     queryKey: ['dashboard-clients'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .select('*')
         .order('created_at', { ascending: false });
       

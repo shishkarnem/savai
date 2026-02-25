@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     let upsertedCount = 0;
     for (const expert of experts) {
       const { error } = await supabase
-        .from('experts')
+        .from('sav_experts')
         .upsert(
           {
             sheet_row_id: expert.sheet_row_id,

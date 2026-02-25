@@ -24,8 +24,8 @@ import { ClientChat } from './ClientChat';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type Client = Tables<'clients'>;
-type TelegramProfile = Tables<'telegram_profiles'>;
+type Client = Tables<'sav_clients'>;
+type TelegramProfile = Tables<'sav_telegram_profiles'>;
 
 interface ClientCardConfigurableProps {
   client: Client | null;
@@ -106,7 +106,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
       if (isNaN(telegramIdNum)) return null;
       
       const { data, error } = await supabase
-        .from('telegram_profiles')
+        .from('sav_telegram_profiles')
         .select('*')
         .eq('telegram_id', telegramIdNum)
         .maybeSingle();
@@ -131,7 +131,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
 
       setIsSyncing(true);
       try {
-        const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+        const { data, error } = await supabase.functions.invoke('sav-sync-telegram-profile', {
           body: { telegram_id: client.telegram_id },
         });
 
@@ -158,7 +158,7 @@ export const ClientCardConfigurable: React.FC<ClientCardConfigurableProps> = ({
     
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-telegram-profile', {
+      const { data, error } = await supabase.functions.invoke('sav-sync-telegram-profile', {
         body: { telegram_id: client.telegram_id },
       });
 

@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BusinessInfo, PlanLevel } from "../types";
 
 export async function classifyBusiness(userInput: string): Promise<BusinessInfo> {
-  const { data, error } = await supabase.functions.invoke('classify-business', {
+  const { data, error } = await supabase.functions.invoke('sav-classify-business', {
     body: { userInput }
   });
 

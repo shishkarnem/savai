@@ -42,7 +42,7 @@ import type { MediaAttachment } from '@/pages/CRMMessageConstructor';
 import { ALL_CRM_FIELDS } from '@/pages/CRMMessageConstructor';
 import { resolveMacros, processMessageIntoParts, stripHtml } from '@/utils/messageParser';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 interface BulkActionsBarProps {
   selectedIds: Set<string>;
@@ -99,7 +99,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   const { data: experts } = useQuery({
     queryKey: ['experts-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('experts').select('*');
+      const { data, error } = await supabase.from('sav_experts').select('*');
       if (error) throw error;
       return data;
     },
@@ -110,7 +110,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     queryKey: ['bulk-templates'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('notification_templates')
+        .from('sav_notification_templates')
         .select('*')
         .eq('is_active', true)
         .order('updated_at', { ascending: false });
@@ -147,7 +147,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     }
     setIsSavingTemplate(true);
     try {
-      const { error } = await supabase.from('notification_templates').insert([{
+      const { error } = await supabase.from('sav_notification_templates').insert([{
         name: templateName.trim(),
         type: 'bulk_message',
         header_text: '',
@@ -248,7 +248,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             const hasTextParsedMedia = part.media.length > 0 || part.albums.length > 0;
             const effectiveUseCaption = partMedia.length > 0 && (useMediaCaption || hasTextParsedMedia);
 
-            await supabase.functions.invoke('send-telegram-message', {
+            await supabase.functions.invoke('sav-send-telegram-message', {
               body: {
                 clientId: client.id,
                 telegramId: client.telegram_id,
@@ -294,7 +294,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     try {
       const ids = Array.from(selectedIds);
       const { error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .update({ status: newStatus })
         .in('id', ids);
       if (error) throw error;
@@ -317,7 +317,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       const expert = experts?.find(e => e.pseudonym === selectedExpert || e.id === selectedExpert);
       const ids = Array.from(selectedIds);
       const { error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .update({
           expert_pseudonym: expert?.pseudonym || selectedExpert,
           expert_name: expert?.pseudonym || selectedExpert,
@@ -341,7 +341,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     try {
       const ids = Array.from(selectedIds);
       const { error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .delete()
         .in('id', ids);
       if (error) throw error;

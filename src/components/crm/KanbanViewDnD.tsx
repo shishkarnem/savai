@@ -11,8 +11,8 @@ import type { KanbanField } from '@/hooks/useCRMSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type Client = Tables<'clients'>;
-type TelegramProfile = Tables<'telegram_profiles'>;
+type Client = Tables<'sav_clients'>;
+type TelegramProfile = Tables<'sav_telegram_profiles'>;
 
 interface KanbanViewDnDProps {
   clients: Client[];
@@ -295,7 +295,7 @@ export const KanbanViewDnD: React.FC<KanbanViewDnDProps> = ({
       if (telegramIds.length === 0) return [];
       
       const { data, error } = await supabase
-        .from('telegram_profiles')
+        .from('sav_telegram_profiles')
         .select('*')
         .in('telegram_id', telegramIds);
       
@@ -335,7 +335,7 @@ export const KanbanViewDnD: React.FC<KanbanViewDnDProps> = ({
 
     try {
       const { error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .update({ status: newStatus })
         .eq('id', clientId);
 

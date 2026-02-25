@@ -50,7 +50,7 @@ const CRMMessageLogs: React.FC = () => {
     queryKey: ['all-messages'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('client_messages')
+        .from('sav_client_messages')
         .select('*')
         .order('sent_at', { ascending: false })
         .limit(1000);
@@ -65,7 +65,7 @@ const CRMMessageLogs: React.FC = () => {
     queryKey: ['clients-names'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('clients')
+        .from('sav_clients')
         .select('id, full_name, telegram_client, telegram_id');
       if (error) throw error;
       return data;

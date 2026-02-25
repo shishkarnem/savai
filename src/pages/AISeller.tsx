@@ -29,7 +29,7 @@ const AISeller: React.FC = () => {
 
   const sendNotification = async (action: string, businessDescription: string, businessInfo?: BusinessInfo) => {
     try {
-      await supabase.functions.invoke('notify-tariff-selection', {
+      await supabase.functions.invoke('sav-notify-tariff-selection', {
         body: {
           tariffName: action,
           paymentType: 'view',

@@ -83,7 +83,7 @@ const handler = async (req: Request): Promise<Response> => {
   const startTime = Date.now();
 
   try {
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const TELEGRAM_BOT_TOKEN = Deno.env.get("SAV_TELEGRAM_BOT_TOKEN");
     if (!TELEGRAM_BOT_TOKEN) {
       return new Response(
         JSON.stringify({ error: "Telegram bot token not configured" }),
@@ -125,7 +125,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Create message record
     const messageText = message || (hasStandardMedia || hasSpecialMedia ? '[Медиафайл]' : '');
     const { data: messageRecord, error: insertError } = await supabase
-      .from("client_messages")
+      .from("sav_client_messages")
       .insert({
         client_id: clientId,
         telegram_id: telegramId,
@@ -303,7 +303,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (telegramResult.ok) {
       await supabase
-        .from("client_messages")
+        .from("sav_client_messages")
         .update({ 
           status: "sent",
           sent_at: new Date().toISOString(),
@@ -323,7 +323,7 @@ const handler = async (req: Request): Promise<Response> => {
       const errorMessage = telegramResult.description || "Unknown Telegram error";
       
       await supabase
-        .from("client_messages")
+        .from("sav_client_messages")
         .update({ 
           status: "failed",
           error_message: errorMessage,

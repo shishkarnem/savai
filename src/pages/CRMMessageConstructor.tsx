@@ -192,7 +192,7 @@ export interface MessageConstructorSettings {
 async function loadSettingsFromDB(type: string): Promise<{ settings: MessageConstructorSettings | null; templateId: string | null }> {
   try {
     const { data, error } = await supabase
-      .from('notification_templates')
+      .from('sav_notification_templates')
       .select('*')
       .eq('type', type)
       .eq('is_active', true)
@@ -258,14 +258,14 @@ async function saveSettingsToDB(
   try {
     if (templateId) {
       const { error } = await supabase
-        .from('notification_templates')
+        .from('sav_notification_templates')
         .update(templateData)
         .eq('id', templateId);
       if (error) throw error;
       return templateId;
     } else {
       const { data, error } = await supabase
-        .from('notification_templates')
+        .from('sav_notification_templates')
         .insert(templateData)
         .select('id')
         .single();

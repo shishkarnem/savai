@@ -88,7 +88,7 @@ export const CalculatorWizard: React.FC<CalculatorWizardProps> = ({ onBack, sele
     const fetchExperts = async () => {
       setExpertsLoading(true);
       const { data, error } = await supabase
-        .from('experts')
+        .from('sav_experts')
         .select('*')
         .order('created_at', { ascending: true });
       

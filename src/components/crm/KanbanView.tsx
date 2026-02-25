@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { User, MapPin, Briefcase } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Client = Tables<'clients'>;
+type Client = Tables<'sav_clients'>;
 
 interface KanbanViewProps {
   clients: Client[];
