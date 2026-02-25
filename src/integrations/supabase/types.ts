@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      cities: {
+      sav_cities: {
         Row: {
           avg_salary: number | null
           created_at: string
@@ -38,7 +38,7 @@ export type Database = {
         }
         Relationships: []
       }
-      client_messages: {
+      sav_client_messages: {
         Row: {
           client_id: string
           created_at: string
@@ -83,12 +83,12 @@ export type Database = {
             foreignKeyName: "client_messages_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "clients"
+            referencedRelation: "sav_clients"
             referencedColumns: ["id"]
           },
         ]
       }
-      clients: {
+      sav_clients: {
         Row: {
           act_date: string | null
           ai_employee_cost: string | null
@@ -277,7 +277,7 @@ export type Database = {
         }
         Relationships: []
       }
-      crm_admins: {
+      sav_crm_admins: {
         Row: {
           access_level: Database["public"]["Enums"]["crm_access_level"]
           created_at: string
@@ -304,7 +304,7 @@ export type Database = {
         }
         Relationships: []
       }
-      experts: {
+      sav_experts: {
         Row: {
           cases: string | null
           created_at: string
@@ -349,7 +349,7 @@ export type Database = {
         }
         Relationships: []
       }
-      notification_templates: {
+      sav_notification_templates: {
         Row: {
           created_at: string
           fields: Json
@@ -391,7 +391,7 @@ export type Database = {
         }
         Relationships: []
       }
-      tariff_notifications: {
+      sav_tariff_notifications: {
         Row: {
           created_at: string
           id: string
@@ -424,7 +424,7 @@ export type Database = {
         }
         Relationships: []
       }
-      telegram_profiles: {
+      sav_telegram_profiles: {
         Row: {
           created_at: string
           first_name: string | null
@@ -463,7 +463,7 @@ export type Database = {
         }
         Relationships: []
       }
-      user_calculations: {
+      sav_user_calculations: {
         Row: {
           calculation_type: string
           created_at: string
