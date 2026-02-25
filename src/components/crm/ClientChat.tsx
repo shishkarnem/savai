@@ -335,7 +335,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             {messages?.map((msg) => (
               <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.direction === 'outgoing' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: msg.message }} />
                   <div className={`flex items-center gap-1 mt-1 ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                     <span className={`text-[10px] ${msg.direction === 'outgoing' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {format(new Date(msg.sent_at), 'HH:mm', { locale: ru })}

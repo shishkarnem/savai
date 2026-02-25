@@ -397,7 +397,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
       {/* --- Send Messages Dialog --- */}
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full mx-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto w-[95vw] sm:w-full mx-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-5 h-5" />
