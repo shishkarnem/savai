@@ -6,13 +6,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, GripVertical, ArrowDown, ArrowRight, Link, Type, Globe } from 'lucide-react';
 
 export type InlineButtonType = 'text' | 'link' | 'webapp';
+export type InlineButtonStyle = 'default' | 'primary' | 'success' | 'danger';
 
 export interface InlineButton {
   id: string;
   type: InlineButtonType;
   text: string;
-  url?: string; // for link and webapp types
-  callbackData?: string; // for text type
+  url?: string;
+  callbackData?: string;
+  style?: InlineButtonStyle;
 }
 
 export interface InlineButtonRow {
@@ -25,6 +27,17 @@ const BUTTON_TYPE_LABELS: Record<InlineButtonType, { label: string; icon: React.
   link: { label: 'Ссылка', icon: <Link className="w-3 h-3" /> },
   webapp: { label: 'WebApp', icon: <Globe className="w-3 h-3" /> },
 };
+
+const BUTTON_STYLE_OPTIONS: { value: InlineButtonStyle; label: string; color: string; previewBg: string; previewBorder: string; previewText: string }[] = [
+  { value: 'default', label: '⬜ Default', color: 'text-muted-foreground', previewBg: 'bg-[#3390ec]/20', previewBorder: 'border-[#3390ec]/40', previewText: 'text-[#3390ec]' },
+  { value: 'primary', label: '🔵 Primary', color: 'text-blue-500', previewBg: 'bg-[#3390ec]/30', previewBorder: 'border-[#3390ec]/60', previewText: 'text-[#3390ec]' },
+  { value: 'success', label: '🟢 Success', color: 'text-green-500', previewBg: 'bg-green-500/20', previewBorder: 'border-green-500/40', previewText: 'text-green-400' },
+  { value: 'danger', label: '🔴 Danger', color: 'text-red-500', previewBg: 'bg-red-500/20', previewBorder: 'border-red-500/40', previewText: 'text-red-400' },
+];
+
+function getStylePreview(style?: InlineButtonStyle) {
+  return BUTTON_STYLE_OPTIONS.find(s => s.value === (style || 'default')) || BUTTON_STYLE_OPTIONS[0];
+}
 
 interface InlineButtonBuilderProps {
   rows: InlineButtonRow[];
@@ -41,6 +54,7 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
       type: 'text',
       text: 'Кнопка',
       callbackData: 'action',
+      style: 'default',
     });
     onChange(newRows);
   };
@@ -53,6 +67,7 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
         type: 'text',
         text: 'Кнопка',
         callbackData: 'action',
+        style: 'default',
       }],
     }]);
   };
@@ -60,7 +75,6 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
   const removeButton = (rowIndex: number, btnIndex: number) => {
     const newRows = [...rows];
     newRows[rowIndex].buttons.splice(btnIndex, 1);
-    // Remove empty rows
     onChange(newRows.filter(r => r.buttons.length > 0));
   };
 
@@ -83,12 +97,10 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
     const newRows = [...rows];
     const [btn] = newRows[fromRow].buttons.splice(btnIdx, 1);
     if (toRow >= newRows.length) {
-      // Create new row
       newRows.push({ id: crypto.randomUUID(), buttons: [btn] });
     } else {
       newRows[toRow].buttons.push(btn);
     }
-    // Remove empty rows
     onChange(newRows.filter(r => r.buttons.length > 0));
   };
 
@@ -153,18 +165,21 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
 
           {/* Button preview row */}
           <div className="flex flex-wrap gap-1 p-2 bg-muted/30 rounded-md min-h-[32px]">
-            {row.buttons.map((btn, btnIdx) => (
-              <div
-                key={btn.id}
-                draggable
-                onDragStart={() => handleDragStart(rowIdx, btnIdx)}
-                className="flex items-center gap-1 bg-primary/10 border border-primary/30 rounded px-2 py-1 text-xs cursor-grab active:cursor-grabbing"
-              >
-                <GripVertical className="w-3 h-3 text-muted-foreground" />
-                {BUTTON_TYPE_LABELS[btn.type].icon}
-                <span className="max-w-20 truncate">{btn.text}</span>
-              </div>
-            ))}
+            {row.buttons.map((btn, btnIdx) => {
+              const styleInfo = getStylePreview(btn.style);
+              return (
+                <div
+                  key={btn.id}
+                  draggable
+                  onDragStart={() => handleDragStart(rowIdx, btnIdx)}
+                  className={`flex items-center gap-1 ${styleInfo.previewBg} border ${styleInfo.previewBorder} rounded px-2 py-1 text-xs cursor-grab active:cursor-grabbing`}
+                >
+                  <GripVertical className="w-3 h-3 text-muted-foreground" />
+                  {BUTTON_TYPE_LABELS[btn.type].icon}
+                  <span className={`max-w-20 truncate ${styleInfo.previewText}`}>{btn.text}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Button editors */}
@@ -196,6 +211,19 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
                     placeholder="Текст кнопки"
                     className="flex-1 h-7 text-xs"
                   />
+                  <Select
+                    value={btn.style || 'default'}
+                    onValueChange={(v: InlineButtonStyle) => updateButton(rowIdx, btnIdx, { style: v })}
+                  >
+                    <SelectTrigger className="w-28 h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BUTTON_STYLE_OPTIONS.map(({ value, label }) => (
+                        <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -257,23 +285,34 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
         <div className="mt-3">
           <Label className="text-xs text-muted-foreground mb-1 block">Превью кнопок:</Label>
           <div className="bg-[#1a1a1a] rounded-lg p-3 space-y-1">
-            {rows.map((row, rowIdx) => (
+            {rows.map((row) => (
               <div key={row.id} className="flex gap-1">
-                {row.buttons.map((btn) => (
-                  <div
-                    key={btn.id}
-                    className="flex-1 text-center py-1.5 px-2 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-xs text-[#3390ec] truncate"
-                  >
-                    {btn.type === 'link' && '🔗 '}
-                    {btn.type === 'webapp' && '🌐 '}
-                    {btn.text}
-                  </div>
-                ))}
+                {row.buttons.map((btn) => {
+                  const styleInfo = getStylePreview(btn.style);
+                  return (
+                    <div
+                      key={btn.id}
+                      className={`flex-1 text-center py-1.5 px-2 rounded ${styleInfo.previewBg} border ${styleInfo.previewBorder} text-xs ${styleInfo.previewText} truncate`}
+                    >
+                      {btn.type === 'link' && '🔗 '}
+                      {btn.type === 'webapp' && '🌐 '}
+                      {btn.text}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Text command help */}
+      <div className="text-[10px] text-muted-foreground space-y-0.5 mt-2">
+        <p><b>Текстовые команды кнопок:</b></p>
+        <p><code>{'##INLINE:[🔵кнопка 1;🔴кнопка 2],[🟢кнопка 3;кнопка 4]##'}</code></p>
+        <p><code>{'##INLINE:кнопка(url:https://...);кнопка(webapp:https://...)##'}</code></p>
+        <p>🔵 primary, 🟢 success, 🔴 danger, без иконки — default</p>
+      </div>
     </div>
   );
 };

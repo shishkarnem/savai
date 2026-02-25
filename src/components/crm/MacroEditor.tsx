@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,8 +20,14 @@ import {
   Video,
   File,
   Trash2,
+  Eye,
+  Scissors,
 } from 'lucide-react';
 import type { MessageField, TextFormat, MediaType, MediaAttachment } from '@/pages/CRMMessageConstructor';
+import { splitMessage, markdownToHtml, parseInlineCommands, parseMediaCommands } from '@/utils/messageParser';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Client = Tables<'clients'>;
 
 const CATEGORY_LABELS: Record<string, string> = {
   client: '👤 Клиент',
@@ -51,6 +57,8 @@ interface MacroEditorProps {
   onUseMediaCaptionChange?: (v: boolean) => void;
   /** Show compact layout for chat sidebar */
   compact?: boolean;
+  /** Client for preview with real data */
+  previewClient?: Client | null;
 }
 
 /** Wraps `text` in the Telegram-HTML tag for `format`. */
@@ -61,7 +69,7 @@ function wrapWithFormat(text: string, format: TextFormat, linkText?: string): st
     case 'italic':
       return `<i>${text}</i>`;
     case 'code':
-      return `\`\`\`\n${text}\n\`\`\``;
+      return `<pre>${text}</pre>`;
     case 'mono':
       return `<code>${text}</code>`;
     case 'quote':
@@ -73,6 +81,21 @@ function wrapWithFormat(text: string, format: TextFormat, linkText?: string): st
   }
 }
 
+/** Resolve macros for preview */
+function resolveMacrosForPreview(text: string, client: Client): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (key === 'telegram_link') {
+      return client.telegram_client
+        ? `https://t.me/${client.telegram_client.replace('@', '')}`
+        : client.telegram_id
+          ? `tg://user?id=${client.telegram_id}`
+          : match;
+    }
+    const val = (client as Record<string, unknown>)[key];
+    return val?.toString() ?? match;
+  });
+}
+
 const MacroEditor: React.FC<MacroEditorProps> = ({
   value,
   onChange,
@@ -82,6 +105,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
   useMediaCaption = false,
   onUseMediaCaptionChange,
   compact = false,
+  previewClient,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -144,6 +168,11 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
     [insertAtCursor],
   );
 
+  // Auto-convert markdown to HTML
+  const handleConvertMarkdown = useCallback(() => {
+    onChange(markdownToHtml(value));
+  }, [value, onChange]);
+
   // Media helpers
   const addMedia = () => {
     if (!onMediaChange) return;
@@ -164,6 +193,26 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
   const charLimit = hasMedia && useMediaCaption ? 1000 : 4000;
   const charCount = value.length;
 
+  // Split preview
+  const messageParts = useMemo(() => {
+    if (!value.trim()) return [];
+    return splitMessage(value, charLimit);
+  }, [value, charLimit]);
+
+  // Parse inline commands and media commands for preview
+  const parsedPreview = useMemo(() => {
+    if (!value.trim()) return null;
+    const { cleanText, buttons } = parseInlineCommands(value);
+    const { cleanText: finalText, media: parsedMedia, albums } = parseMediaCommands(cleanText);
+    return { text: finalText, buttons, media: parsedMedia, albums };
+  }, [value]);
+
+  // Preview with real client data
+  const previewWithData = useMemo(() => {
+    if (!previewClient || !value.trim()) return null;
+    return resolveMacrosForPreview(value, previewClient);
+  }, [previewClient, value]);
+
   // Group fields by category
   const categories = ['client', 'project', 'finance', 'expert', 'dates', 'protalk', 'documents', 'other'] as const;
   const groupedFields = categories
@@ -181,7 +230,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
     <div className="space-y-2">
       <Label className={`${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center gap-2`}>
         <Type className={iconSize} />
-        Макро-редактор сообщения
+        Макро-редактор сообщения (HTML)
       </Label>
 
       {/* Format toolbar */}
@@ -192,9 +241,8 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
         <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 italic`} onClick={() => wrapSelection('italic')} title="Курсив <i>">
           <Italic className={iconSize} />
         </Button>
-        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 font-mono`} onClick={() => wrapSelection('code')} title="Код ```">
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5 font-mono`} onClick={() => wrapSelection('code')} title="Код <pre>">
           <Code className={iconSize} />
-          <span>```</span>
         </Button>
         <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5`} onClick={() => wrapSelection('mono')} title="Моноширинный <code>">
           <Terminal className={iconSize} />
@@ -216,6 +264,13 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
             requestAnimationFrame(() => ta.focus());
           }}
         />
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
+        {/* Markdown to HTML */}
+        <Button type="button" variant="ghost" size="sm" className={`${btnSize} gap-0.5`} onClick={handleConvertMarkdown} title="Конвертировать Markdown → HTML">
+          <span className="text-[9px] font-mono">MD→HTML</span>
+        </Button>
 
         <div className="w-px h-4 bg-border mx-0.5" />
 
@@ -277,6 +332,84 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
           {charCount > charLimit && ` (будет разделено)`}
         </span>
       </div>
+
+      {/* Split messages preview */}
+      {messageParts.length > 1 && (
+        <div className="space-y-1.5">
+          <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Scissors className={iconSize} />
+            Сообщения будут разделены на {messageParts.length} частей:
+          </Label>
+          <div className="space-y-1">
+            {messageParts.map((part, i) => (
+              <div key={i} className="bg-muted/30 rounded p-2 text-xs border border-border">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground font-medium">Часть {i + 1}</span>
+                  <span className="text-[10px] text-muted-foreground">{part.length} символов</span>
+                </div>
+                <p className="text-muted-foreground whitespace-pre-wrap line-clamp-3">{part}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Preview with real data */}
+      {previewClient && previewWithData && (
+        <div className="space-y-1.5">
+          <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Eye className={iconSize} />
+            Предпросмотр для: {previewClient.full_name || previewClient.telegram_client || 'Клиент'}
+          </Label>
+          <div className="bg-[#1a1a1a] rounded-lg p-3 text-xs text-white/80 whitespace-pre-wrap">
+            {previewWithData}
+          </div>
+        </div>
+      )}
+
+      {/* Parsed inline buttons preview from text commands */}
+      {parsedPreview && parsedPreview.buttons.length > 0 && (
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Кнопки из текстовых команд:</Label>
+          <div className="bg-[#1a1a1a] rounded-lg p-2 space-y-1">
+            {parsedPreview.buttons.map((row, i) => (
+              <div key={i} className="flex gap-1">
+                {row.buttons.map((btn, j) => (
+                  <div key={j} className="flex-1 text-center py-1 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[10px] text-[#3390ec] truncate">
+                    {btn.type === 'link' && '🔗 '}
+                    {btn.type === 'webapp' && '🌐 '}
+                    {btn.text}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Parsed media from text commands */}
+      {parsedPreview && (parsedPreview.media.length > 0 || parsedPreview.albums.length > 0) && (
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Медиа из текстовых команд:</Label>
+          <div className="flex flex-wrap gap-1">
+            {parsedPreview.media.map((m, i) => (
+              <span key={i} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                {m.type === 'photo' && '🖼'}
+                {m.type === 'video' && '🎬'}
+                {m.type === 'document' && '📄'}
+                {m.type === 'video_note' && '🔵'}
+                {m.type === 'audio' && '🎵'}
+                {' '}{m.source.length > 30 ? m.source.slice(0, 30) + '...' : m.source}
+              </span>
+            ))}
+            {parsedPreview.albums.map((a, i) => (
+              <span key={`album-${i}`} className="text-[10px] bg-muted/50 rounded px-1.5 py-0.5 border border-border">
+                🗂 Альбом ({a.sources.length} файлов)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Media section */}
       {onMediaChange && (
@@ -350,12 +483,21 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
 
       <div className="text-[10px] text-muted-foreground space-y-0.5">
         <p>
+          <b>Формат:</b> только HTML. {'<b>жирный</b>'}, {'<i>курсив</i>'}, {'<pre>код</pre>'},{' '}
+          {'<code>моно</code>'}, {'<blockquote>цитата</blockquote>'},{' '}
+          {'<a href="url">текст</a>'}, {'<s>зачёркнутый</s>'}
+        </p>
+        <p>
           <b>Макросы:</b> {`{{field_key}}`} — подставляются при отправке.
         </p>
         <p>
-          <b>Форматы:</b> {'<b>жирный</b>'}, {'<i>курсив</i>'}, {'```код```'},{' '}
-          {'<code>моно</code>'}, {'<blockquote>цитата</blockquote>'},{' '}
-          {'<a href="url">текст ссылки</a>'}
+          <b>Медиа в тексте:</b> {'##IMG:url##'}, {'##VIDEO:url##'}, {'##FILE:url##'}, {'##VIDEO_NOTE:id##'}, {'##AUDIO:url##'}, {'##ALBUM:url1;url2##'}
+        </p>
+        <p>
+          <b>Кнопки в тексте:</b> {'##INLINE:[🔵кнопка;🔴кнопка2],[кнопка3(url:https://...)]##'}
+        </p>
+        <p>
+          <b>MD→HTML:</b> нажмите кнопку для конвертации markdown в HTML
         </p>
       </div>
     </div>
