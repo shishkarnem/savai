@@ -27,6 +27,11 @@ export function markdownToHtml(text: string): string {
   return result;
 }
 
+/** Strip all HTML tags from text */
+export function stripHtml(text: string): string {
+  return text.replace(/<[^>]+>/g, '');
+}
+
 // ============ STYLE ICONS ============
 
 const STYLE_ICON_MAP: Record<string, InlineButtonStyle> = {
@@ -80,35 +85,23 @@ function parseSingleButton(token: string): ParsedButton {
  * 
  * Rows separated by ], [ (comma between brackets)
  * Columns within a row separated by ;
- * 
- * Format with brackets (explicit rows):
- * ##INLINE:[btn1;btn2],[btn3;btn4]##
- * 
- * Format without brackets (each ; = new row):
- * ##INLINE:btn1;btn2;btn3##
  */
 export function parseInlineCommands(text: string): { cleanText: string; buttons: InlineButtonRow[] } {
   const buttons: InlineButtonRow[] = [];
   
   const cleanText = text.replace(/##INLINE:([\s\S]*?)##/g, (_, content: string) => {
     const trimmedContent = content.trim();
-    
-    // Check if content uses bracket notation
     const hasBrackets = trimmedContent.includes('[');
     
     if (hasBrackets) {
-      // Extract bracket groups: [btn1;btn2], [btn3;btn4]
       const bracketGroups = trimmedContent.match(/\[([^\]]*)\]/g);
       if (bracketGroups) {
         for (const group of bracketGroups) {
-          const inner = group.slice(1, -1); // remove [ ]
+          const inner = group.slice(1, -1);
           const tokens = inner.split(';').filter(t => t.trim());
           const rowButtons: InlineButton[] = tokens.map(t => {
             const parsed = parseSingleButton(t);
-            return {
-              id: crypto.randomUUID(),
-              ...parsed,
-            };
+            return { id: crypto.randomUUID(), ...parsed };
           });
           if (rowButtons.length > 0) {
             buttons.push({ id: crypto.randomUUID(), buttons: rowButtons });
@@ -116,21 +109,17 @@ export function parseInlineCommands(text: string): { cleanText: string; buttons:
         }
       }
     } else {
-      // No brackets: each semicolon-separated item is a new row
       const tokens = trimmedContent.split(';').filter(t => t.trim());
       for (const t of tokens) {
         const parsed = parseSingleButton(t);
         buttons.push({
           id: crypto.randomUUID(),
-          buttons: [{
-            id: crypto.randomUUID(),
-            ...parsed,
-          }],
+          buttons: [{ id: crypto.randomUUID(), ...parsed }],
         });
       }
     }
     
-    return ''; // Remove the command from text
+    return '';
   });
   
   return { cleanText: cleanText.trim(), buttons };
@@ -140,7 +129,7 @@ export function parseInlineCommands(text: string): { cleanText: string; buttons:
 
 export interface ParsedMedia {
   type: 'photo' | 'video' | 'document' | 'video_note' | 'audio';
-  source: string; // URL or file_id
+  source: string;
 }
 
 export interface ParsedAlbum {
@@ -160,7 +149,6 @@ export function parseMediaCommands(text: string): ParsedMediaCommands {
   
   let cleanText = text;
   
-  // Single media
   const singlePatterns: Array<{ regex: RegExp; type: ParsedMedia['type'] }> = [
     { regex: /##IMG:(.+?)##/g, type: 'photo' },
     { regex: /##FILE:(.+?)##/g, type: 'document' },
@@ -176,7 +164,6 @@ export function parseMediaCommands(text: string): ParsedMediaCommands {
     });
   }
   
-  // Albums
   cleanText = cleanText.replace(/##ALBUM:(.+?)##/g, (_, sources: string) => {
     const sourceList = sources.split(';').map(s => s.trim()).filter(Boolean);
     if (sourceList.length > 0) {
@@ -199,23 +186,13 @@ export interface ProcessedMessage {
 
 /** Process a message: convert markdown, extract inline commands and media commands */
 export function processMessageText(text: string): ProcessedMessage {
-  // 1. Convert markdown to HTML
   let processed = markdownToHtml(text);
-  
-  // 2. Extract inline button commands
   const { cleanText: afterInline, buttons } = parseInlineCommands(processed);
   processed = afterInline;
-  
-  // 3. Extract media commands
   const { cleanText: afterMedia, media, albums } = parseMediaCommands(processed);
   processed = afterMedia;
   
-  return {
-    text: processed,
-    inlineButtons: buttons,
-    media,
-    albums,
-  };
+  return { text: processed, inlineButtons: buttons, media, albums };
 }
 
 // ============ MESSAGE SPLITTING ============
@@ -229,10 +206,8 @@ function splitAtBoundary(text: string, charLimit: number): string[] {
       result.push(remaining);
       break;
     }
-    // Try paragraph break
     let splitIdx = remaining.lastIndexOf('\n\n', charLimit);
     if (splitIdx < charLimit * 0.3) splitIdx = remaining.lastIndexOf('\n', charLimit);
-    // Try sentence break (. ! ?)
     if (splitIdx < charLimit * 0.3) {
       const sentenceMatch = remaining.slice(0, charLimit).match(/.*[.!?]\s/s);
       if (sentenceMatch) splitIdx = sentenceMatch[0].length;
@@ -267,29 +242,22 @@ export interface ProcessedMessagePart {
 }
 
 export function processMessageIntoParts(rawText: string, defaultCharLimit: number = 4000): ProcessedMessagePart[] {
-  // 1. First split by explicit separators (✂️✂️✂️ or ::)
   const explicitParts = rawText.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
   if (explicitParts.length === 0) return [{ text: '', inlineButtons: [], media: [], albums: [] }];
 
   const result: ProcessedMessagePart[] = [];
 
   for (const part of explicitParts) {
-    // 2. Convert markdown in this part
     const html = markdownToHtml(part);
-    // 3. Extract inline buttons for THIS part
     const { cleanText: afterInline, buttons } = parseInlineCommands(html);
-    // 4. Extract media commands for THIS part
     const { cleanText: afterMedia, media, albums } = parseMediaCommands(afterInline);
 
-    // 5. Determine char limit: if this part has media, use 1000 for first chunk
     const hasPartMedia = media.length > 0 || albums.length > 0;
     const firstLimit = hasPartMedia ? 1000 : defaultCharLimit;
 
-    // 6. Split the cleaned text if needed
     const textChunks = splitAtBoundary(afterMedia.trim(), firstLimit);
     
     if (textChunks.length <= 1) {
-      // Single chunk — attach all buttons and media
       result.push({
         text: textChunks[0] || '',
         inlineButtons: buttons,
@@ -297,7 +265,6 @@ export function processMessageIntoParts(rawText: string, defaultCharLimit: numbe
         albums,
       });
     } else {
-      // Multiple chunks: media goes on first, buttons go on last
       for (let i = 0; i < textChunks.length; i++) {
         const isFirst = i === 0;
         const isLast = i === textChunks.length - 1;
@@ -307,8 +274,6 @@ export function processMessageIntoParts(rawText: string, defaultCharLimit: numbe
           media: isFirst ? media : [],
           albums: isFirst ? albums : [],
         });
-        // After first chunk with media, use standard limit for rest
-        // (splitAtBoundary already handled this with firstLimit for first split)
       }
     }
   }

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
@@ -24,29 +25,15 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import MacroEditor from '@/components/crm/MacroEditor';
+import InlineButtonBuilder, { type InlineButtonRow } from '@/components/InlineButtonBuilder';
 import { 
-  type MessageField, 
   type MediaAttachment,
+  ALL_CRM_FIELDS,
 } from '@/pages/CRMMessageConstructor';
 import type { Tables } from '@/integrations/supabase/types';
+import { resolveMacros, processMessageIntoParts, stripHtml } from '@/utils/messageParser';
 
 type Client = Tables<'clients'>;
-
-// Minimal field set for chat macro editor
-const CHAT_FIELDS: MessageField[] = [
-  { key: 'full_name', label: 'ФИО клиента', icon: '👤', enabled: true, format: 'bold', category: 'client' },
-  { key: 'telegram_link', label: 'Ссылка на Telegram', icon: '📨', enabled: true, format: 'link', category: 'client', linkText: 'Написать в Telegram' },
-  { key: 'telegram_id', label: 'Telegram ID', icon: '#️⃣', enabled: true, format: 'code', category: 'client' },
-  { key: 'telegram_client', label: 'Telegram клиента', icon: '👤', enabled: false, format: 'normal', category: 'client' },
-  { key: 'city', label: 'Город', icon: '📍', enabled: false, format: 'normal', category: 'client' },
-  { key: 'status', label: 'Статус', icon: '⚙️', enabled: false, format: 'bold', category: 'client' },
-  { key: 'comment', label: 'Комментарий', icon: '📝', enabled: false, format: 'italic', category: 'client' },
-  { key: 'project', label: 'Проект', icon: '📂', enabled: false, format: 'bold', category: 'project' },
-  { key: 'product', label: 'Продукт', icon: '📦', enabled: false, format: 'normal', category: 'project' },
-  { key: 'tariff', label: 'Тариф', icon: '💰', enabled: false, format: 'bold', category: 'finance' },
-  { key: 'sav_cost', label: 'Стоимость SAV', icon: '💵', enabled: false, format: 'bold', category: 'finance' },
-  { key: 'selected_expert', label: 'Выбранный эксперт', icon: '🎓', enabled: false, format: 'bold', category: 'expert' },
-];
 
 interface ClientChatProps {
   clientId: string;
@@ -67,16 +54,6 @@ interface Message {
   created_at: string;
 }
 
-interface ChatTemplate {
-  id: string;
-  name: string;
-  header_text: string | null;
-  footer_text: string | null;
-  fields: any;
-  media: any;
-  use_media_caption: boolean;
-}
-
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'pending':
@@ -94,30 +71,6 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-/** Split message by manual separators (✂️✂️✂️ or ::) then by char limit */
-function splitMessage(text: string, charLimit: number): string[] {
-  // First split by manual separators
-  const manualParts = text.split(/✂️✂️✂️|::/).map(p => p.trim()).filter(Boolean);
-  
-  const result: string[] = [];
-  for (const part of manualParts) {
-    if (part.length <= charLimit) {
-      result.push(part);
-    } else {
-      // Split by paragraphs first, then by char limit
-      let remaining = part;
-      while (remaining.length > charLimit) {
-        let splitAt = remaining.lastIndexOf('\n', charLimit);
-        if (splitAt <= 0) splitAt = charLimit;
-        result.push(remaining.slice(0, splitAt).trim());
-        remaining = remaining.slice(splitAt).trim();
-      }
-      if (remaining) result.push(remaining);
-    }
-  }
-  return result;
-}
-
 export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, clientName, clientData }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -125,6 +78,8 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
   const [showConstructor, setShowConstructor] = useState(false);
   const [media, setMedia] = useState<MediaAttachment[]>([]);
   const [useMediaCaption, setUseMediaCaption] = useState(false);
+  const [inlineButtons, setInlineButtons] = useState<InlineButtonRow[]>([]);
+  const [disableWebPagePreview, setDisableWebPagePreview] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -151,11 +106,10 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
       const { data, error } = await supabase
         .from('notification_templates')
         .select('*')
-        .eq('type', 'chat_message')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as ChatTemplate[];
+      return data;
     },
   });
 
@@ -188,14 +142,19 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
 
-    // Use macroText if available, otherwise header_text
-    const rawFields = template.fields;
+    const rawFields = template.fields as any;
     const macroText = rawFields?.macroText || template.header_text || '';
     setMessage(prev => prev ? `${prev}\n\n${macroText}` : macroText);
 
-    // Apply media
+    if (rawFields?.inlineButtons) {
+      setInlineButtons(rawFields.inlineButtons);
+    }
+    if (rawFields?.disableWebPagePreview !== undefined) {
+      setDisableWebPagePreview(rawFields.disableWebPagePreview);
+    }
+
     if (template.media && Array.isArray(template.media) && template.media.length > 0) {
-      setMedia(template.media as MediaAttachment[]);
+      setMedia(template.media as unknown as MediaAttachment[]);
       setUseMediaCaption(template.use_media_caption || false);
     }
 
@@ -215,7 +174,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
         type: 'chat_message',
         header_text: '',
         footer_text: '',
-        fields: { fieldsList: [], inlineButtons: [], macroText: message } as any,
+        fields: { fieldsList: [], inlineButtons, macroText: message, disableWebPagePreview } as any,
         media: (media.length > 0 ? media : []) as any,
         use_media_caption: useMediaCaption,
         is_active: true,
@@ -231,39 +190,73 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     }
   };
 
-  // Send message mutation
+  // Send message mutation — uses same logic as bulk send
   const sendMutation = useMutation({
     mutationFn: async (text: string) => {
-      const validMedia = media.filter(m => m.url.trim());
-      const hasMedia = validMedia.length > 0;
-      const charLimit = hasMedia && useMediaCaption ? 1000 : 4000;
-      const parts = splitMessage(text, charLimit);
+      // Resolve macros with client data
+      const clientRecord = clientData as unknown as Record<string, unknown> | null;
+      const resolvedText = clientRecord ? resolveMacros(text, clientRecord) : text;
+      
+      // Process into parts
+      const parts = processMessageIntoParts(resolvedText);
+      const uiMedia: MediaAttachment[] = media.filter(m => m.url.trim());
 
-      // Send first part with media (if any)
       for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
         const isFirst = i === 0;
+
+        // Build media
+        const partMedia: MediaAttachment[] = [];
+        if (isFirst && uiMedia.length > 0) partMedia.push(...uiMedia);
+        for (const pm of part.media) {
+          partMedia.push({ id: crypto.randomUUID(), type: pm.type as any, url: pm.source });
+        }
+        for (const album of part.albums) {
+          for (const source of album.sources) {
+            partMedia.push({ id: crypto.randomUUID(), type: 'photo', url: source });
+          }
+        }
+
+        // Buttons
+        const partButtons = [...(isFirst ? inlineButtons : []), ...part.inlineButtons];
+        const resolvedButtons = partButtons.length > 0
+          ? partButtons.map(row => ({
+              ...row,
+              buttons: row.buttons.map(btn => ({
+                ...btn,
+                text: stripHtml(clientRecord ? resolveMacros(btn.text, clientRecord) : btn.text),
+                url: btn.url ? (clientRecord ? resolveMacros(btn.url, clientRecord) : btn.url) : btn.url,
+              })),
+            }))
+          : undefined;
+
         const response = await supabase.functions.invoke('send-telegram-message', {
           body: {
             clientId,
             telegramId,
-            message: parts[i],
-            media: isFirst && hasMedia ? validMedia : undefined,
-            useMediaCaption: isFirst && hasMedia ? useMediaCaption : false,
+            message: part.text,
+            media: partMedia.length > 0 ? partMedia : undefined,
+            useMediaCaption: partMedia.length > 0 && useMediaCaption,
+            inlineButtons: resolvedButtons,
+            disableWebPagePreview,
           },
         });
         if (response.error) throw new Error(response.error.message);
         if (response.data?.error) throw new Error(response.data.error);
+
+        if (i < parts.length - 1) await new Promise(r => setTimeout(r, 500));
       }
 
       // If no text but has media
-      if (parts.length === 0 && hasMedia) {
+      if (parts.length === 0 && uiMedia.length > 0) {
         const response = await supabase.functions.invoke('send-telegram-message', {
           body: {
             clientId,
             telegramId,
             message: '',
-            media: validMedia,
+            media: uiMedia,
             useMediaCaption: false,
+            disableWebPagePreview,
           },
         });
         if (response.error) throw new Error(response.error.message);
@@ -273,6 +266,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
     onSuccess: () => {
       setMessage('');
       setMedia([]);
+      setInlineButtons([]);
       setUseMediaCaption(false);
       queryClient.invalidateQueries({ queryKey: ['client-messages', clientId] });
       toast({ title: 'Сообщение отправлено' });
@@ -413,12 +407,32 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
           <MacroEditor
             value={message}
             onChange={setMessage}
-            fields={CHAT_FIELDS}
+            fields={ALL_CRM_FIELDS}
             media={media}
             onMediaChange={setMedia}
             useMediaCaption={useMediaCaption}
             onUseMediaCaptionChange={setUseMediaCaption}
             compact
+            previewClient={clientData || null}
+          />
+
+          {/* Link preview toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={disableWebPagePreview}
+              onCheckedChange={setDisableWebPagePreview}
+              id="chatDisablePreview"
+              className="scale-75"
+            />
+            <Label htmlFor="chatDisablePreview" className="text-[10px]">
+              Отключить предпросмотр ссылок
+            </Label>
+          </div>
+
+          {/* Inline Button Builder */}
+          <InlineButtonBuilder
+            rows={inlineButtons}
+            onChange={setInlineButtons}
           />
         </CollapsibleContent>
       </Collapsible>
@@ -448,19 +462,16 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
               )}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Enter — отправить, Shift+Enter — новая строка
-          </p>
         </div>
       )}
 
-      {/* Send button when constructor is open */}
+      {/* Input area when constructor is open */}
       {showConstructor && (
-        <div className="pt-2 border-t border-border mt-2 flex items-center gap-2">
+        <div className="pt-3 border-t border-border mt-2">
           <Button
             onClick={handleSend}
             disabled={(!message.trim() && media.filter(m => m.url.trim()).length === 0) || sendMutation.isPending}
-            className="flex-1 h-9 gap-2"
+            className="w-full gap-2"
           >
             {sendMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -469,13 +480,8 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             )}
             Отправить
           </Button>
-          <p className="text-[10px] text-muted-foreground">
-            ✂️✂️✂️ или :: — разделители
-          </p>
         </div>
       )}
     </div>
   );
 };
-
-export default ClientChat;
