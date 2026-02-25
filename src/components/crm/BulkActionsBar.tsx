@@ -397,7 +397,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
       {/* --- Send Messages Dialog --- */}
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto w-[95vw] sm:w-full mx-auto p-4 sm:p-6">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-hidden w-[95vw] sm:w-full mx-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="w-5 h-5" />
@@ -433,19 +433,19 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
           )}
 
           {/* Save as template */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
             <Input
               value={templateName}
               onChange={e => setTemplateName(e.target.value)}
               placeholder="Название шаблона для сохранения..."
-              className="h-7 text-xs flex-1"
+              className="h-7 text-xs flex-1 min-w-0"
             />
             <Button
               variant="outline"
               size="sm"
               onClick={handleSaveTemplate}
               disabled={isSavingTemplate || !templateName.trim()}
-              className="h-7 px-2 text-xs gap-1"
+              className="h-7 px-2 text-xs gap-1 w-full sm:w-auto"
             >
               {isSavingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
               Сохранить

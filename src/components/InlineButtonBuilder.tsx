@@ -116,10 +116,10 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 w-full min-w-0 overflow-x-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="text-sm font-medium">Инлайн-кнопки</Label>
-        <Button variant="outline" size="sm" onClick={addRow} className="gap-1 h-7 text-xs">
+        <Button variant="outline" size="sm" onClick={addRow} className="gap-1 h-7 text-xs w-full sm:w-auto">
           <Plus className="w-3 h-3" />
           Новый ряд
         </Button>
@@ -134,7 +134,7 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
       {rows.map((row, rowIdx) => (
         <div
           key={row.id}
-          className="border border-border rounded-lg p-3 space-y-2"
+          className="border border-border rounded-lg p-3 space-y-2 overflow-x-hidden"
           onDragOver={(e) => e.preventDefault()}
           onDrop={() => handleDrop(rowIdx)}
         >
@@ -184,9 +184,9 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
 
           {/* Button editors */}
           {row.buttons.map((btn, btnIdx) => (
-            <div key={btn.id} className="flex items-start gap-2 pl-2 border-l-2 border-primary/20">
+            <div key={btn.id} className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 pl-2 border-l-2 border-primary/20">
               <div className="flex-1 space-y-1.5">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Select
                     value={btn.type}
                     onValueChange={(v: InlineButtonType) => {
@@ -196,7 +196,7 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
                       updateButton(rowIdx, btnIdx, updates);
                     }}
                   >
-                    <SelectTrigger className="w-24 h-7 text-xs">
+                    <SelectTrigger className="w-full sm:w-24 h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -209,13 +209,13 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
                     value={btn.text}
                     onChange={(e) => updateButton(rowIdx, btnIdx, { text: e.target.value })}
                     placeholder="Текст кнопки"
-                    className="flex-1 h-7 text-xs"
+                    className="flex-1 min-w-0 h-7 text-xs"
                   />
                   <Select
                     value={btn.style || 'default'}
                     onValueChange={(v: InlineButtonStyle) => updateButton(rowIdx, btnIdx, { style: v })}
                   >
-                    <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectTrigger className="w-full sm:w-28 h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -284,15 +284,15 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
       {rows.length > 0 && (
         <div className="mt-3">
           <Label className="text-xs text-muted-foreground mb-1 block">Превью кнопок:</Label>
-          <div className="bg-[#1a1a1a] rounded-lg p-3 space-y-1">
+          <div className="bg-[#1a1a1a] rounded-lg p-3 space-y-1 overflow-x-hidden">
             {rows.map((row) => (
-              <div key={row.id} className="flex gap-1">
+              <div key={row.id} className="flex gap-1 flex-wrap">
                 {row.buttons.map((btn) => {
                   const styleInfo = getStylePreview(btn.style);
                   return (
                     <div
                       key={btn.id}
-                      className={`flex-1 text-center py-1.5 px-2 rounded ${styleInfo.previewBg} border ${styleInfo.previewBorder} text-xs ${styleInfo.previewText} truncate`}
+                      className={`flex-1 min-w-[90px] text-center py-1.5 px-2 rounded ${styleInfo.previewBg} border ${styleInfo.previewBorder} text-xs ${styleInfo.previewText} truncate`}
                     >
                       {btn.type === 'link' && '🔗 '}
                       {btn.type === 'webapp' && '🌐 '}
@@ -307,7 +307,7 @@ const InlineButtonBuilder: React.FC<InlineButtonBuilderProps> = ({ rows, onChang
       )}
 
       {/* Text command help */}
-      <div className="text-[10px] text-muted-foreground space-y-0.5 mt-2">
+      <div className="text-[10px] text-muted-foreground space-y-0.5 mt-2 break-words [&_code]:break-all">
         <p><b>Текстовые команды кнопок:</b></p>
         <p><code>{'##INLINE:[🔵кнопка 1;🔴кнопка 2],[🟢кнопка 3;кнопка 4]##'}</code></p>
         <p><code>{'##INLINE:кнопка(url:https://...);кнопка(webapp:https://...)##'}</code></p>

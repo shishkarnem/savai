@@ -335,7 +335,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             {messages?.map((msg) => (
               <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.direction === 'outgoing' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: msg.message }} />
+                  <p className="text-sm whitespace-pre-wrap break-words [&_a]:break-all [&_code]:break-all" dangerouslySetInnerHTML={{ __html: msg.message }} />
                   <div className={`flex items-center gap-1 mt-1 ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
                     <span className={`text-[10px] ${msg.direction === 'outgoing' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {format(new Date(msg.sent_at), 'HH:mm', { locale: ru })}
@@ -363,7 +363,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
             <ChevronDown className={`h-3 w-3 transition-transform ${showConstructor ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-2 space-y-3 max-h-[300px] overflow-y-auto">
+        <CollapsibleContent className="pt-2 space-y-3 max-h-[300px] overflow-y-auto overflow-x-hidden">
           {/* Template selector */}
           <div className="space-y-1.5">
             <Label className="text-[10px] flex items-center gap-1">
@@ -388,19 +388,19 @@ export const ClientChat: React.FC<ClientChatProps> = ({ clientId, telegramId, cl
           </div>
 
           {/* Save as template */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
             <Input
               value={newTemplateName}
               onChange={e => setNewTemplateName(e.target.value)}
               placeholder="Название шаблона..."
-              className="h-6 text-[10px] flex-1"
+              className="h-6 text-[10px] flex-1 min-w-0"
             />
             <Button 
               variant="outline" 
               size="sm" 
               onClick={saveAsTemplate}
               disabled={isSavingTemplate || !newTemplateName.trim()}
-              className="h-6 px-2 text-[10px] gap-1"
+              className="h-6 px-2 text-[10px] gap-1 w-full sm:w-auto"
             >
               {isSavingTemplate ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
               Сохранить

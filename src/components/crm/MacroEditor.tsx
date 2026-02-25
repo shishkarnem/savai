@@ -225,7 +225,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
   const iconSize = compact ? 'w-3 h-3' : 'w-3.5 h-3.5';
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 w-full min-w-0 overflow-x-hidden">
       <Label className={`${compact ? 'text-xs' : 'text-sm'} font-medium flex items-center gap-2`}>
         <Type className={iconSize} />
         Макро-редактор сообщения (HTML)
@@ -279,7 +279,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
               Макрос
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
+          <PopoverContent className="w-[calc(100vw-2rem)] max-w-72 p-0" align="start">
             <ScrollArea className="h-[300px]">
               <div className="p-2 space-y-2">
                 {groupedFields.map((group) => (
@@ -317,11 +317,11 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Введите текст сообщения с макросами, например: {{full_name}}, {{tariff}}..."
-        className={`${compact ? 'min-h-[100px]' : 'min-h-[200px]'} font-mono text-sm resize-y`}
+        className={`${compact ? 'min-h-[100px]' : 'min-h-[200px]'} font-mono text-sm resize-y w-full max-w-full`}
       />
 
       {/* Char count */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-1">
         <div className="text-[10px] text-muted-foreground">
           <b>Разделители:</b> ✂️✂️✂️ или :: — разбивают на отдельные сообщения
         </div>
@@ -345,7 +345,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
                   <span className="text-[10px] text-muted-foreground font-medium">Часть {i + 1}</span>
                   <span className="text-[10px] text-muted-foreground">{part.text.length} символов</span>
                 </div>
-                <p className="text-muted-foreground whitespace-pre-wrap line-clamp-3">{part.text}</p>
+                <p className="text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">{part.text}</p>
                 {/* Per-part media */}
                 {(part.media.length > 0 || part.albums.length > 0) && (
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -367,9 +367,9 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
                 {part.inlineButtons.length > 0 && (
                   <div className="bg-[#1a1a1a] rounded p-1.5 space-y-0.5 mt-1">
                     {part.inlineButtons.map((row, ri) => (
-                      <div key={ri} className="flex gap-1">
+                      <div key={ri} className="flex gap-1 flex-wrap">
                         {row.buttons.map((btn, bi) => (
-                          <div key={bi} className="flex-1 text-center py-0.5 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[9px] text-[#3390ec] truncate">
+                          <div key={bi} className="flex-1 min-w-[80px] text-center py-0.5 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[9px] text-[#3390ec] truncate">
                             {btn.type === 'link' && '🔗 '}{btn.type === 'webapp' && '🌐 '}{btn.text}
                           </div>
                         ))}
@@ -387,11 +387,11 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
       {processedParts.length === 1 && processedParts[0]?.inlineButtons.length > 0 && (
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">Кнопки из текстовых команд:</Label>
-          <div className="bg-[#1a1a1a] rounded-lg p-2 space-y-1">
+          <div className="bg-[#1a1a1a] rounded-lg p-2 space-y-1 overflow-x-hidden">
             {processedParts[0].inlineButtons.map((row, i) => (
-              <div key={i} className="flex gap-1">
+              <div key={i} className="flex gap-1 flex-wrap">
                 {row.buttons.map((btn, j) => (
-                  <div key={j} className="flex-1 text-center py-1 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[10px] text-[#3390ec] truncate">
+                  <div key={j} className="flex-1 min-w-[80px] text-center py-1 px-1 rounded bg-[#3390ec]/20 border border-[#3390ec]/40 text-[10px] text-[#3390ec] truncate">
                     {btn.type === 'link' && '🔗 '}{btn.type === 'webapp' && '🌐 '}{btn.text}
                   </div>
                 ))}
@@ -462,9 +462,9 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
           )}
 
           {media.map((m) => (
-            <div key={m.id} className="flex items-center gap-1.5">
+            <div key={m.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
               <Select value={m.type} onValueChange={(v: MediaType) => updateMedia(m.id, { type: v })}>
-                <SelectTrigger className="w-20 h-7 text-[10px]">
+                <SelectTrigger className="w-full sm:w-20 h-7 text-[10px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -477,9 +477,9 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
                 value={m.url}
                 onChange={(e) => updateMedia(m.id, { url: e.target.value })}
                 placeholder="URL или file_id"
-                className="flex-1 h-7 text-[10px]"
+                className="flex-1 min-w-0 h-7 text-[10px]"
               />
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeMedia(m.id)}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 self-end sm:self-auto" onClick={() => removeMedia(m.id)}>
                 <Trash2 className="w-3 h-3 text-destructive" />
               </Button>
             </div>
@@ -503,7 +503,7 @@ const MacroEditor: React.FC<MacroEditorProps> = ({
         </div>
       )}
 
-      <div className="text-[10px] text-muted-foreground space-y-0.5">
+      <div className="text-[10px] text-muted-foreground space-y-0.5 break-words [&_code]:break-all">
         <p>
           <b>Формат:</b> только HTML. {'<b>жирный</b>'}, {'<i>курсив</i>'}, {'<pre>код</pre>'},{' '}
           {'<code>моно</code>'}, {'<blockquote>цитата</blockquote>'},{' '}
@@ -550,7 +550,7 @@ function LinkInsertButton({ onInsert, compact = false }: { onInsert: (url: strin
           <Link className={iconSize} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 space-y-2" align="start">
+      <PopoverContent className="w-[calc(100vw-2rem)] max-w-64 space-y-2" align="start">
         <Label className="text-xs">Текст ссылки</Label>
         <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать нам" className="h-7 text-xs" />
         <Label className="text-xs">URL или макрос</Label>
